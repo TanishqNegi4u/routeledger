@@ -8,7 +8,7 @@
 FROM node:20.14-alpine AS build
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund
 
 COPY index.html vite.config.js ./
