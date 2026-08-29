@@ -336,6 +336,15 @@ export default function Collections() {
               </span>
             </div>
           </div>
+
+          <div className="row" style={{ justifyContent: 'flex-end', gap: 'var(--s-3)', marginTop: 'var(--s-2)' }}>
+            <button type="button" className="btn" onClick={() => setTarget(null)} disabled={busy}>
+              Cancel
+            </button>
+            <SubmitButton busy={busy} className="btn btn-good">
+              Record payment
+            </SubmitButton>
+          </div>
         </form>
       </Drawer>
     </>

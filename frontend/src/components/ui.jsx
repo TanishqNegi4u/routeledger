@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * Shared presentational primitives. These are thin on purpose - they wrap the class names defined in
@@ -197,7 +198,7 @@ export function Drawer({ open, title, subtitle, onClose, footer, children }) {
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  return createPortal(
     <>
       <div className="backdrop" onClick={onClose} role="presentation" />
       <aside className="drawer" role="dialog" aria-modal="true" aria-label={title}>
@@ -213,7 +214,8 @@ export function Drawer({ open, title, subtitle, onClose, footer, children }) {
         <div className="drawer-body">{children}</div>
         {footer ? <div className="drawer-foot">{footer}</div> : null}
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -278,7 +280,7 @@ export function Pager({ page, size, totalElements, totalPages, onPage, busy }) {
 /** Confirmation for the few destructive actions in the app. */
 export function Confirm({ open, title, text, confirmLabel = 'Confirm', tone = 'btn-danger', onCancel, onConfirm, busy }) {
   if (!open) return null;
-  return (
+  return createPortal(
     <>
       <div className="backdrop" onClick={onCancel} role="presentation" />
       <div
@@ -309,7 +311,8 @@ export function Confirm({ open, title, text, confirmLabel = 'Confirm', tone = 'b
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 

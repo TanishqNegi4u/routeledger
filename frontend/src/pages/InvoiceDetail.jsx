@@ -430,6 +430,15 @@ export default function InvoiceDetail({ invoiceId }) {
               onChange={(event) => setPayForm((c) => ({ ...c, reference: event.target.value }))}
             />
           </Field>
+
+          <div className="row" style={{ justifyContent: 'flex-end', gap: 'var(--s-3)', marginTop: 'var(--s-2)' }}>
+            <button type="button" className="btn" onClick={() => setPayOpen(false)} disabled={busy}>
+              Cancel
+            </button>
+            <SubmitButton busy={busy} className="btn btn-good">
+              Record payment
+            </SubmitButton>
+          </div>
         </form>
       </Drawer>
 

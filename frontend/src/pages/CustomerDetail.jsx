@@ -253,7 +253,18 @@ export default function CustomerDetail({ customerId }) {
           ← Book
         </Link>
         {canManage ? (
-          <button type="button" className="btn btn-sm" onClick={() => setPayOpen(true)}>
+          <button
+            type="button"
+            className="btn btn-sm btn-good"
+            onClick={() => {
+              setPayForm({
+                ...BLANK_PAYMENT,
+                amountPaise: record?.outstandingPaise ? String(fromPaise(record.outstandingPaise)) : '',
+              });
+              setIssues({});
+              setPayOpen(true);
+            }}
+          >
             Record payment
           </button>
         ) : null}
@@ -917,6 +928,15 @@ export default function CustomerDetail({ customerId }) {
               placeholder="UPI 4821"
             />
           </Field>
+
+          <div className="row" style={{ justifyContent: 'flex-end', gap: 'var(--s-3)', marginTop: 'var(--s-2)' }}>
+            <button type="button" className="btn" onClick={() => setPayOpen(false)} disabled={busy}>
+              Cancel
+            </button>
+            <SubmitButton busy={busy} className="btn btn-good">
+              Record payment
+            </SubmitButton>
+          </div>
         </form>
       </Drawer>
 
