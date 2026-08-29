@@ -37,7 +37,7 @@ export default function Products() {
   const [issues, setIssues] = useState({});
   const [busy, setBusy] = useState(false);
 
-  const list = useAsync(() => api.products.page(page, 12), [page]);
+  const list = useAsync(() => api.products.page({ page, size: 12 }), [page]);
 
   const openCreate = () => {
     setEditing('new');

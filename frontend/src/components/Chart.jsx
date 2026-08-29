@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { token } from '../lib/theme.js';
 
 /**
  * Chart.js wrapper.
@@ -62,6 +63,11 @@ export default function Chart({ type, data, options, height = 260, ariaLabel }) 
 export function baseOptions({ valueFormatter, tooltipFormatter, yAxisFormatter, yTitle } = {}) {
   const formatTooltip = tooltipFormatter || valueFormatter;
   const formatYAxis = yAxisFormatter || valueFormatter;
+  // Resolved from tokens.css at draw time — canvas cannot read var().
+  const axisText = token('--n-500', '#64748b');
+  const axisLine = token('--n-200', '#e2e8f0');
+  const gridLine = token('--n-100', '#f1f5f9');
+  const mutedText = token('--n-400', '#94a3b8');
   return {
     interaction: { mode: 'index', intersect: false },
     plugins: {
@@ -71,7 +77,7 @@ export function baseOptions({ valueFormatter, tooltipFormatter, yAxisFormatter, 
         labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, padding: 16 },
       },
       tooltip: {
-        backgroundColor: '#0b1020',
+        backgroundColor: token('--n-900', '#0f172a'),
         padding: 10,
         cornerRadius: 8,
         titleFont: { size: 12, weight: '600' },
@@ -87,15 +93,15 @@ export function baseOptions({ valueFormatter, tooltipFormatter, yAxisFormatter, 
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 0, autoSkipPadding: 14 },
-        border: { color: '#e2e8f0' },
+        ticks: { color: axisText, font: { size: 11 }, maxRotation: 0, autoSkipPadding: 14 },
+        border: { color: axisLine },
       },
       y: {
         beginAtZero: true,
-        title: yTitle ? { display: true, text: yTitle, color: '#94a3b8', font: { size: 11 } } : undefined,
-        grid: { color: '#f1f5f9' },
+        title: yTitle ? { display: true, text: yTitle, color: mutedText, font: { size: 11 } } : undefined,
+        grid: { color: gridLine },
         ticks: {
-          color: '#64748b',
+          color: axisText,
           font: { size: 11 },
           callback: (value) => (formatYAxis ? formatYAxis(value) : value),
         },

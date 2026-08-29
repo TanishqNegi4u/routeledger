@@ -62,7 +62,7 @@ export default function Runs() {
   const [outcome, setOutcome] = useState(null);
 
   const today = useAsync(() => api.runs.byDate(date), [date]);
-  const history = useAsync(() => api.runs.page(page, 12), [page]);
+  const history = useAsync(() => api.runs.page({ page, size: 12 }), [page]);
   const routes = useAsync(() => api.routes.list(true), []);
 
   const totals = useMemo(() => {

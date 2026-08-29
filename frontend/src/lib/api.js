@@ -194,7 +194,8 @@ export const api = {
   },
 
   dashboard: {
-    summary: () => client.get('/dashboard/summary').then((r) => r.data),
+    /** GET /dashboard?from=&to= — the single aggregated read the home screen needs. */
+    overview: (from, to) => client.get('/dashboard', { params: { from, to } }).then((r) => r.data),
   },
 
   customers: {
@@ -204,7 +205,7 @@ export const api = {
     create: (body) => client.post('/customers', body).then((r) => r.data),
     update: (id, body) => client.put(`/customers/${id}`, body).then((r) => r.data),
     setActive: (id, active) => client.patch(`/customers/${id}/active`, null, { params: { active } }).then((r) => r.data),
-    planBeats: (params) => client.get('/customers/beats', { params }).then((r) => r.data),
+    beats: (params) => client.get('/customers/beats', { params }).then((r) => r.data),
   },
 
   products: {
@@ -218,6 +219,8 @@ export const api = {
 
   routes: {
     list: (activeOnly = false) => client.get('/routes', { params: { activeOnly } }).then((r) => r.data),
+    /** Everyone on the payroll, for assigning a beat to an agent. */
+    staff: () => client.get('/routes/staff').then((r) => r.data),
     get: (id) => client.get(`/routes/${id}`).then((r) => r.data),
     create: (body) => client.post('/routes', body).then((r) => r.data),
     update: (id, body) => client.put(`/routes/${id}`, body).then((r) => r.data),
@@ -243,7 +246,7 @@ export const api = {
     page: (params) => client.get('/runs', { params }).then((r) => r.data),
     byDate: (date) => client.get('/runs/by-date', { params: { date } }).then((r) => r.data),
     mine: (date) => client.get('/runs/mine', { params: { date } }).then((r) => r.data),
-    get: (id) => client.get(`/runs/${id}`).then((r) => r.data),
+    detail: (id) => client.get(`/runs/${id}`).then((r) => r.data),
     generate: (body) => client.post('/runs/generate', body).then((r) => r.data),
     updateStop: (stopId, body) => client.patch(`/runs/stops/${stopId}`, body).then((r) => r.data),
   },

@@ -27,10 +27,11 @@ import {
   shortDate,
   todayIso,
 } from '../lib/format.js';
+import { alpha, token } from '../lib/theme.js';
 
 /**
- * Owner/manager home. Restructured in operator daily story flow:
- * Today's round (top) → Collections health (middle) → Revenue trend (bottom).
+ * Owner/manager home. Restructured so the numbers and the trend both land above the fold:
+ * KPI row → revenue trend (hero) → today's round → collections health.
  */
 
 const WINDOWS = [
@@ -40,11 +41,16 @@ const WINDOWS = [
   { label: '90 days', days: 89 },
 ];
 
+/**
+ * Stop-status accent, as tokens rather than literals — both consumers are DOM styles, so
+ * `var()` resolves. ABSENT used to be an off-palette #ef4444; it is --risk-500 now, which is
+ * the same red the risk badges and the route map's absent pin already use.
+ */
 const STATUS_COLOURS = {
-  DELIVERED: '#10b981',
-  PENDING: '#f59e0b',
-  ABSENT: '#ef4444',
-  SKIPPED: '#94a3b8',
+  DELIVERED: 'var(--good-500)',
+  PENDING: 'var(--warn-500)',
+  ABSENT: 'var(--risk-500)',
+  SKIPPED: 'var(--n-400)',
 };
 
 export default function Dashboard() {
@@ -116,22 +122,20 @@ export default function Dashboard() {
     return revenueSeries[revenueSeries.length - 2];
   }, [revenueSeries]);
 
-  const lastWeekPoint = useMemo(() => {
-    if (revenueSeries.length < 8) return null;
-    return revenueSeries[revenueSeries.length - 8];
-  }, [revenueSeries]);
-
   const trendData = useMemo(() => {
     const labels = revenueSeries.map((point) => shortDate(point.day));
     const collectedByDay = new Map(collectionSeries.map((point) => [point.day, point.valuePaise]));
+    // Canvas cannot read var(), so the palette is resolved from tokens.css at draw time.
+    const billed = token('--brand-600', '#4f46e5');
+    const collected = token('--good-600', '#059669');
     return {
       labels,
       datasets: [
         {
           label: 'Billed',
           data: revenueSeries.map((point) => Number(point.valuePaise || 0) / 100),
-          borderColor: '#4f46e5',
-          backgroundColor: 'rgba(79, 70, 229, 0.12)',
+          borderColor: billed,
+          backgroundColor: alpha(billed, 0.12),
           borderWidth: 2,
           fill: true,
           tension: 0.32,
@@ -143,8 +147,8 @@ export default function Dashboard() {
           data: revenueSeries.map(
             (point) => Number(collectedByDay.get(point.day) || 0) / 100,
           ),
-          borderColor: '#059669',
-          backgroundColor: 'rgba(5, 150, 105, 0.10)',
+          borderColor: collected,
+          backgroundColor: alpha(collected, 0.1),
           borderWidth: 2,
           fill: true,
           tension: 0.32,
@@ -404,7 +408,42 @@ export default function Dashboard() {
         />
       </KpiGrid>
 
-      {/* --- 1. TODAY'S ROUND (TOP) ------------------------------------------ */}
+      {/* --- 1. REVENUE TREND (HERO — kept above the fold) -------------------- */}
+      <div style={{ marginTop: 'var(--s-5)' }}>
+        <Card
+          title="Billed against collected"
+          subtitle={`${shortDate(from)} to ${shortDate(to)} · rupees per day`}
+          actions={
+            <Link to="/app/invoices" className="btn btn-sm">
+              Invoices
+            </Link>
+          }
+        >
+          {loading ? (
+            <SkeletonRows rows={4} cols={1} />
+          ) : revenueSeries.length === 0 ? (
+            <Empty
+              glyph="◔"
+              title="No billing in this window"
+              text="Generate a run and mark a few stops delivered — the curve fills in from the run sheet."
+            >
+              <Link to="/app/runs" className="btn btn-primary btn-sm">
+                Go to runs
+              </Link>
+            </Empty>
+          ) : (
+            <Chart
+              type="line"
+              data={trendData}
+              options={trendOptions}
+              height={252}
+              ariaLabel="Daily billed and collected amounts"
+            />
+          )}
+        </Card>
+      </div>
+
+      {/* --- 2. TODAY'S ROUND ------------------------------------------------- */}
       <div className={styles.split}>
         <Card
           title="Today's beats"
@@ -575,7 +614,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* --- 2. COLLECTIONS HEALTH (MIDDLE) ----------------------------------- */}
+      {/* --- 3. COLLECTIONS HEALTH -------------------------------------------- */}
       <div className={styles.split}>
         <Card
           title="Chase these first"
@@ -671,36 +710,6 @@ export default function Dashboard() {
                 </tbody>
               </table>
             </div>
-          )}
-        </Card>
-      </div>
-
-      {/* --- 3. REVENUE TREND (BOTTOM) --------------------------------------- */}
-      <div style={{ marginTop: 'var(--s-5)' }}>
-        <Card
-          title="Billed against collected"
-          subtitle={`${shortDate(from)} to ${shortDate(to)} · rupees per day`}
-        >
-          {loading ? (
-            <SkeletonRows rows={4} cols={1} />
-          ) : revenueSeries.length === 0 ? (
-            <Empty
-              glyph="◔"
-              title="No billing in this window"
-              text="Generate a run and mark a few stops delivered — the curve fills in from the run sheet."
-            >
-              <Link to="/app/runs" className="btn btn-primary btn-sm">
-                Go to runs
-              </Link>
-            </Empty>
-          ) : (
-            <Chart
-              type="line"
-              data={trendData}
-              options={trendOptions}
-              height={288}
-              ariaLabel="Daily billed and collected amounts"
-            />
           )}
         </Card>
       </div>

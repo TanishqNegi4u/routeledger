@@ -4,6 +4,8 @@ import { useAuth } from '../lib/auth.jsx';
 import { useToast } from '../lib/toast.jsx';
 import { useAsync, useOptimistic, useOfflineQueue, isNetworkError } from '../lib/useAsync.js';
 import StopBoard from '../components/StopBoard.jsx';
+import RouteMap from '../components/RouteMap.jsx';
+import PaymentGatewaySimulator from '../components/PaymentGatewaySimulator.jsx';
 import { Card, Empty, ErrorState, PageHeader, Skeleton, SkeletonRows, StatusBadge } from '../components/ui.jsx';
 import { count, fromPaise, isoDate, longDate, money, relativeDay, todayIso, toPaise } from '../lib/format.js';
 
@@ -37,6 +39,8 @@ export default function MyRound() {
   const [runId, setRunId] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [paymentPrompt, setPaymentPrompt] = useState(null);
+  const [gatewayTarget, setGatewayTarget] = useState(null);
+  const [view, setView] = useState('list');
 
   const runs = useAsync(() => api.runs.mine(date), [date]);
 
@@ -53,6 +57,14 @@ export default function MyRound() {
   const applyOptimistic = useOptimistic(detail.setData);
 
   const stops = useMemo(() => detail.data?.stops || [], [detail.data]);
+
+  /**
+   * Quick-collect lives on the stop row, so a doorstep marked delivered from the map has to
+   * hand back to the list for the agent to actually take the cash.
+   */
+  useEffect(() => {
+    if (paymentPrompt) setView('list');
+  }, [paymentPrompt]);
 
   const { enqueue, dequeue, processQueue, syncing, pendingCount } = useOfflineQueue(
     async (item) => {
@@ -115,6 +127,19 @@ export default function MyRound() {
     }
   };
 
+  /**
+   * Hands the quick-collect prompt over to the sandbox checkout. The prompt stays open behind the
+   * sheet so a declined authorisation drops the agent straight back onto the cash form.
+   */
+  const openGateway = (prompt) => {
+    const paise = toPaise(prompt.amount);
+    if (paise <= 0) {
+      toast.info('Nothing to charge', 'Enter an amount greater than zero first.');
+      return;
+    }
+    setGatewayTarget({ customerId: prompt.customerId, customerName: prompt.customerName, amountPaise: paise });
+  };
+
   const updateStop = async (stopId, body) => {
     const current = stops.find((stop) => stop.id === stopId);
     if (!current) return;
@@ -164,6 +189,8 @@ export default function MyRound() {
   };
 
   const list = runs.data || [];
+  // A finished round from an earlier day is a record, not a worksheet.
+  const readOnlyRound = date !== todayIso() && detail.data?.run?.status === 'COMPLETED';
 
   return (
     <>
@@ -253,27 +280,71 @@ export default function MyRound() {
               ? `${detail.data.run.distanceModel === 'ROAD_APPROX' ? 'Road-approximate' : 'Geodesic'} plan, sequenced from the depot`
               : undefined
           }
-          actions={detail.data?.run ? <StatusBadge value={detail.data.run.status} /> : null}
+          actions={
+            detail.data?.run ? (
+              <div className="row" style={{ gap: 'var(--s-3)' }}>
+                <div className="segmented" role="group" aria-label="Round view">
+                  <button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')}>
+                    List
+                  </button>
+                  <button type="button" aria-pressed={view === 'map'} onClick={() => setView('map')}>
+                    Map
+                  </button>
+                </div>
+                <StatusBadge value={detail.data.run.status} />
+              </div>
+            ) : null
+          }
         >
           {detail.error ? (
             <ErrorState error={detail.error} onRetry={detail.reload} />
           ) : detail.loading && !detail.data ? (
             <SkeletonRows rows={6} cols={3} />
           ) : detail.data ? (
-            <StopBoard
-              run={detail.data.run}
-              stops={stops}
-              onUpdate={updateStop}
-              busyId={busyId}
-              readOnly={date !== todayIso() && detail.data.run.status === 'COMPLETED'}
-              paymentPrompt={paymentPrompt}
-              onDismissPaymentPrompt={() => setPaymentPrompt(null)}
-              onRecordPayment={handleRecordPayment}
-              onPaymentPromptChange={setPaymentPrompt}
-            />
+            view === 'map' ? (
+              <RouteMap
+                stops={stops}
+                onDeliver={(stop) => updateStop(stop.id, { status: 'DELIVERED' })}
+                busyId={busyId}
+                readOnly={readOnlyRound}
+                showLive={date === todayIso()}
+              />
+            ) : (
+              <StopBoard
+                run={detail.data.run}
+                stops={stops}
+                onUpdate={updateStop}
+                busyId={busyId}
+                readOnly={readOnlyRound}
+                paymentPrompt={paymentPrompt}
+                onDismissPaymentPrompt={() => setPaymentPrompt(null)}
+                onRecordPayment={handleRecordPayment}
+                onPaymentPromptChange={setPaymentPrompt}
+                onCollectViaGateway={openGateway}
+              />
+            )
           ) : null}
         </Card>
       ) : null}
+
+      <PaymentGatewaySimulator
+        open={Boolean(gatewayTarget)}
+        amountPaise={gatewayTarget?.amountPaise || 0}
+        customerId={gatewayTarget?.customerId}
+        invoiceId={null}
+        customerName={gatewayTarget?.customerName}
+        onClose={() => setGatewayTarget(null)}
+        onSuccess={(receipt) => {
+          // Booked through the same endpoint the cash form uses, so the prompt's work is done.
+          toast.success(
+            `${money(gatewayTarget?.amountPaise || 0)} from ${gatewayTarget?.customerName}`,
+            receipt?.remainingOutstandingPaise > 0
+              ? `${money(receipt.remainingOutstandingPaise)} still open.`
+              : `${gatewayTarget?.customerName} is fully settled.`,
+          );
+          setPaymentPrompt(null);
+        }}
+      />
     </>
   );
 }

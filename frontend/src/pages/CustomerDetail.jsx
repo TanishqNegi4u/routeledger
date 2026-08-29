@@ -31,6 +31,7 @@ import {
   toggleMaskBit,
 } from '../lib/format.js';
 import styles from './Dashboard.module.css';
+import PaymentGatewaySimulator from '../components/PaymentGatewaySimulator.jsx';
 
 /**
  * One household, everything about it: standing orders, pause windows, bills and payments.
@@ -68,6 +69,7 @@ export default function CustomerDetail({ customerId }) {
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseForm, setPauseForm] = useState(BLANK_PAUSE);
   const [payOpen, setPayOpen] = useState(false);
+  const [gatewayOpen, setGatewayOpen] = useState(false);
   const [payForm, setPayForm] = useState(BLANK_PAYMENT);
   const [removing, setRemoving] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -253,20 +255,28 @@ export default function CustomerDetail({ customerId }) {
           ← Book
         </Link>
         {canManage ? (
-          <button
-            type="button"
-            className="btn btn-sm btn-good"
-            onClick={() => {
-              setPayForm({
-                ...BLANK_PAYMENT,
-                amountPaise: record?.outstandingPaise ? String(fromPaise(record.outstandingPaise)) : '',
-              });
-              setIssues({});
-              setPayOpen(true);
-            }}
-          >
-            Record payment
-          </button>
+          <>
+            {/* Sandbox checkout, offered only when there is actually a balance to charge. */}
+            {record?.outstandingPaise > 0 ? (
+              <button type="button" className="btn btn-sm" onClick={() => setGatewayOpen(true)}>
+                Collect via UPI link
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="btn btn-sm btn-good"
+              onClick={() => {
+                setPayForm({
+                  ...BLANK_PAYMENT,
+                  amountPaise: record?.outstandingPaise ? String(fromPaise(record.outstandingPaise)) : '',
+                });
+                setIssues({});
+                setPayOpen(true);
+              }}
+            >
+              Record payment
+            </button>
+          </>
         ) : null}
       </PageHeader>
 
@@ -928,15 +938,6 @@ export default function CustomerDetail({ customerId }) {
               placeholder="UPI 4821"
             />
           </Field>
-
-          <div className="row" style={{ justifyContent: 'flex-end', gap: 'var(--s-3)', marginTop: 'var(--s-2)' }}>
-            <button type="button" className="btn" onClick={() => setPayOpen(false)} disabled={busy}>
-              Cancel
-            </button>
-            <SubmitButton busy={busy} className="btn btn-good">
-              Record payment
-            </SubmitButton>
-          </div>
         </form>
       </Drawer>
 
@@ -952,6 +953,16 @@ export default function CustomerDetail({ customerId }) {
         busy={busy}
         onCancel={() => setRemoving(null)}
         onConfirm={removePause}
+      />
+
+      <PaymentGatewaySimulator
+        open={gatewayOpen && Boolean(record)}
+        amountPaise={record?.outstandingPaise || 0}
+        customerId={Number(customerId)}
+        invoiceId={null}
+        customerName={record?.name}
+        onClose={() => setGatewayOpen(false)}
+        onSuccess={refreshMoney}
       />
     </>
   );

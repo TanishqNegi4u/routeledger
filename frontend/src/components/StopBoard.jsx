@@ -28,6 +28,11 @@ export default function StopBoard({
   onDismissPaymentPrompt,
   onRecordPayment,
   onPaymentPromptChange,
+  /**
+   * Optional. When supplied, the quick-collect prompt also offers the sandbox gateway alongside
+   * cash entry. Left out on screens that have no checkout mounted, so the button never dead-ends.
+   */
+  onCollectViaGateway,
 }) {
   const [editing, setEditing] = useState(null);
   const [note, setNote] = useState('');
@@ -266,6 +271,19 @@ export default function StopBoard({
                         {paymentPrompt.saving ? <span className="spinner" style={{ width: 12, height: 12 }} /> : null}
                         Record payment
                       </button>
+                      {onCollectViaGateway ? (
+                        // Sandbox checkout for the doorstep that wants to pay by phone. Cash still
+                        // goes through the form on the left — this is the second option, not the only one.
+                        <button
+                          type="button"
+                          className="btn btn-sm"
+                          disabled={paymentPrompt.saving}
+                          style={{ alignSelf: 'flex-end', minHeight: '34px' }}
+                          onClick={() => onCollectViaGateway(paymentPrompt)}
+                        >
+                          UPI link
+                        </button>
+                      ) : null}
                     </form>
                   </div>
                 ) : null}

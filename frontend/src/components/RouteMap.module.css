@@ -1,0 +1,114 @@
+/* Route map view for an agent's round. Leaflet supplies its own tile/control styling;
+   everything here is the RouteLedger chrome around it plus the two custom pin types. */
+
+.wrap {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: 520px;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+}
+
+@media (max-width: 780px) {
+  .wrap {
+    height: 380px;
+  }
+}
+
+.map {
+  width: 100%;
+  height: 100%;
+}
+
+/* Numbered doorstep pin. Colour is set inline per stop status. */
+.pin {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--n-0);
+  box-shadow: 0 1px 4px rgb(15 23 42 / 0.35);
+  font: var(--t-micro);
+  font-weight: 700;
+  color: var(--n-0);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.pin:hover {
+  transform: scale(1.15);
+}
+
+/* The agent's own live position — a pulsing dot, deliberately unlike a doorstep pin. */
+.agentDot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--r-pill);
+  background: var(--info-600);
+  border: 3px solid var(--n-0);
+  box-shadow: 0 0 0 1px var(--info-600);
+}
+
+.agentDot::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--info-600);
+  animation: routemap-pulse 1800ms var(--ease-out) infinite;
+}
+
+@keyframes routemap-pulse {
+  0% {
+    opacity: 0.75;
+    transform: scale(0.55);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agentDot::after {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--border);
+  font: var(--t-small);
+  color: var(--n-600);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--s-2);
+  border-radius: var(--r-pill);
+  vertical-align: baseline;
+}
+
+.popup h4 {
+  margin: 0 0 var(--s-1);
+  font: var(--t-body);
+  font-weight: 650;
+}
+
+.popup .meta {
+  margin: 0 0 var(--s-2);
+  font: var(--t-small);
+  color: var(--n-600);
+}

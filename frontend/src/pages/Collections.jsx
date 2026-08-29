@@ -18,6 +18,7 @@ import {
   SubmitButton,
 } from '../components/ui.jsx';
 import { count, fromPaise, money, percent, shortDate, todayIso, toPaise } from '../lib/format.js';
+import PaymentGatewaySimulator from '../components/PaymentGatewaySimulator.jsx';
 import styles from './Dashboard.module.css';
 
 /**
@@ -33,6 +34,7 @@ export default function Collections() {
   const { canManage } = useAuth();
   const [limit, setLimit] = useState(25);
   const [target, setTarget] = useState(null);
+  const [gatewayTarget, setGatewayTarget] = useState(null);
   const [payForm, setPayForm] = useState({ amountPaise: '', mode: 'UPI', paidOn: todayIso(), reference: '' });
   const [busy, setBusy] = useState(false);
   const [issues, setIssues] = useState({});
@@ -239,9 +241,19 @@ export default function Collections() {
                       <td style={{ maxWidth: 260 }}>{row.suggestedAction}</td>
                       {canManage ? (
                         <td className="right nowrap">
-                          <button type="button" className="btn btn-sm btn-good" onClick={() => openPay(row)}>
-                            Record Payment
-                          </button>
+                          <div className="row" style={{ gap: 'var(--s-2)', justifyContent: 'flex-end' }}>
+                            {/* Sandbox gateway alongside manual entry — cash still needs the form. */}
+                            <button
+                              type="button"
+                              className="btn btn-sm"
+                              onClick={() => setGatewayTarget(row)}
+                            >
+                              UPI link
+                            </button>
+                            <button type="button" className="btn btn-sm btn-good" onClick={() => openPay(row)}>
+                              Record Payment
+                            </button>
+                          </div>
                         </td>
                       ) : null}
                     </tr>
@@ -336,17 +348,18 @@ export default function Collections() {
               </span>
             </div>
           </div>
-
-          <div className="row" style={{ justifyContent: 'flex-end', gap: 'var(--s-3)', marginTop: 'var(--s-2)' }}>
-            <button type="button" className="btn" onClick={() => setTarget(null)} disabled={busy}>
-              Cancel
-            </button>
-            <SubmitButton busy={busy} className="btn btn-good">
-              Record payment
-            </SubmitButton>
-          </div>
         </form>
       </Drawer>
+
+      <PaymentGatewaySimulator
+        open={Boolean(gatewayTarget)}
+        amountPaise={gatewayTarget?.outstandingPaise || 0}
+        customerId={gatewayTarget?.customerId}
+        invoiceId={null}
+        customerName={gatewayTarget?.customerName}
+        onClose={() => setGatewayTarget(null)}
+        onSuccess={() => dues.reload()}
+      />
     </>
   );
 }

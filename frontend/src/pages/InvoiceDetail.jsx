@@ -18,6 +18,7 @@ import {
   SubmitButton,
 } from '../components/ui.jsx';
 import { count, fromPaise, longDate, money, moneyExact, shortDate, todayIso, toPaise } from '../lib/format.js';
+import PaymentGatewaySimulator from '../components/PaymentGatewaySimulator.jsx';
 import styles from './Dashboard.module.css';
 
 /**
@@ -37,6 +38,7 @@ export default function InvoiceDetail({ invoiceId }) {
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustForm, setAdjustForm] = useState({ amount: '', reason: '', sign: 'WAIVE' });
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [gatewayOpen, setGatewayOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [issues, setIssues] = useState({});
 
@@ -167,9 +169,16 @@ export default function InvoiceDetail({ invoiceId }) {
               Adjust
             </button>
             {bill.outstandingPaise > 0 ? (
-              <button type="button" className="btn btn-sm btn-good" onClick={openPay}>
-                Record payment
-              </button>
+              <>
+                {/* Sandbox gateway. Sits beside the manual form, never in place of it — cash at
+                    the door is still the common case. */}
+                <button type="button" className="btn btn-sm" onClick={() => setGatewayOpen(true)}>
+                  Collect via UPI link
+                </button>
+                <button type="button" className="btn btn-sm btn-good" onClick={openPay}>
+                  Record payment
+                </button>
+              </>
             ) : null}
           </>
         ) : null}
@@ -430,15 +439,6 @@ export default function InvoiceDetail({ invoiceId }) {
               onChange={(event) => setPayForm((c) => ({ ...c, reference: event.target.value }))}
             />
           </Field>
-
-          <div className="row" style={{ justifyContent: 'flex-end', gap: 'var(--s-3)', marginTop: 'var(--s-2)' }}>
-            <button type="button" className="btn" onClick={() => setPayOpen(false)} disabled={busy}>
-              Cancel
-            </button>
-            <SubmitButton busy={busy} className="btn btn-good">
-              Record payment
-            </SubmitButton>
-          </div>
         </form>
       </Drawer>
 
@@ -525,6 +525,16 @@ export default function InvoiceDetail({ invoiceId }) {
         busy={busy}
         onCancel={() => setCancelOpen(false)}
         onConfirm={cancelBill}
+      />
+
+      <PaymentGatewaySimulator
+        open={gatewayOpen && Boolean(bill)}
+        amountPaise={bill?.outstandingPaise || 0}
+        customerId={bill?.customerId}
+        invoiceId={bill?.id ?? null}
+        customerName={bill?.customerName}
+        onClose={() => setGatewayOpen(false)}
+        onSuccess={refresh}
       />
     </>
   );
