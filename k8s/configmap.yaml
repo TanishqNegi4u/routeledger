@@ -1,0 +1,28 @@
+# Non-secret configuration. Anything in here is safe to read with
+# `kubectl get configmap -o yaml`, so passwords and signing keys live in
+# secret.yaml instead.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: routeledger-config
+  namespace: routeledger
+  labels:
+    app.kubernetes.io/name: routeledger
+    app.kubernetes.io/part-of: routeledger
+data:
+  SERVER_PORT: "8080"
+  DB_URL: "jdbc:mysql://routeledger-mysql:3306/routeledger?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata&characterEncoding=utf8"
+  DB_USERNAME: "routeledger"
+  DB_POOL_MAX: "20"
+  JWT_TTL_SECONDS: "86400"
+  # The browser only ever talks to the web tier, which proxies /api on the same
+  # origin - so CORS is a belt-and-braces setting, not a dependency.
+  CORS_ALLOWED_ORIGINS: "https://routeledger.example.com"
+  # Turn this off the moment a real customer's data lands in this database.
+  DEMO_SEED: "true"
+  DEMO_HISTORY_DAYS: "45"
+  MYSQL_DATABASE: "routeledger"
+  MYSQL_USER: "routeledger"
+  # Consumed by the nginx entrypoint to template the reverse proxy target.
+  BACKEND_ORIGIN: "http://routeledger-api:8080"
+  TZ: "Asia/Kolkata"

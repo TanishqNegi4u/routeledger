@@ -1,0 +1,243 @@
+/* Split-screen auth: form on the left, proof panel on the right. Collapses to one column. */
+
+.wrap {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background: var(--surface);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--s-8) var(--s-6);
+}
+
+.inner {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  color: var(--text);
+  text-decoration: none;
+  margin-bottom: var(--s-8);
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--brand-500), var(--good-500));
+  color: #061018;
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: -0.03em;
+}
+
+.brandName {
+  font-weight: 700;
+  letter-spacing: var(--track-tight);
+}
+
+.title {
+  font: var(--t-h1);
+  letter-spacing: var(--track-tight);
+}
+
+.sub {
+  color: var(--text-soft);
+  margin-top: var(--s-2);
+  font: var(--t-small);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin-top: var(--s-6);
+}
+
+.pair {
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: 1fr 1fr;
+}
+
+.alert {
+  border: 1px solid var(--risk-100);
+  background: var(--risk-50);
+  color: var(--risk-700);
+  border-radius: var(--r-sm);
+  padding: var(--s-3) var(--s-4);
+  font-size: 0.8125rem;
+}
+
+.notice {
+  border: 1px solid var(--warn-100);
+  background: var(--warn-50);
+  color: var(--warn-700);
+  border-radius: var(--r-sm);
+  padding: var(--s-3) var(--s-4);
+  font-size: 0.8125rem;
+}
+
+.swap {
+  margin-top: var(--s-5);
+  font-size: 0.8125rem;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.demo {
+  margin-top: var(--s-6);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  padding: var(--s-4);
+  background: var(--surface-sunken);
+}
+
+.demoHead {
+  font: var(--t-micro);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: var(--s-3);
+}
+
+.demoRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  justify-content: space-between;
+  padding: var(--s-2) 0;
+  font-size: 0.8125rem;
+  border-top: 1px solid var(--border);
+}
+
+.demoRow:first-of-type {
+  border-top: 0;
+}
+
+.proof {
+  background: linear-gradient(160deg, var(--ink-900) 0%, var(--ink-950) 60%, #060a16 100%);
+  color: #e2e8f0;
+  padding: var(--s-8) var(--s-6);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--s-6);
+  position: relative;
+  overflow: hidden;
+}
+
+.proof::before {
+  content: '';
+  position: absolute;
+  width: 460px;
+  height: 460px;
+  top: -160px;
+  right: -160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.34), transparent 68%);
+  pointer-events: none;
+}
+
+.proofKicker {
+  font: var(--t-micro);
+  letter-spacing: var(--track-wide);
+  text-transform: uppercase;
+  color: #818cf8;
+}
+
+.proofTitle {
+  font: var(--t-h2);
+  letter-spacing: var(--track-tight);
+  color: #fff;
+  max-width: 22ch;
+}
+
+.proofList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  max-width: 44ch;
+}
+
+.proofItem {
+  display: flex;
+  gap: var(--s-4);
+  align-items: flex-start;
+}
+
+.proofNum {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: rgba(99, 102, 241, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.34);
+  color: #c7d2fe;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.proofText {
+  font-size: 0.875rem;
+  color: #cbd5e1;
+  line-height: 1.55;
+}
+
+.proofText b {
+  color: #fff;
+  font-weight: 650;
+}
+
+.stat {
+  display: flex;
+  gap: var(--s-6);
+  flex-wrap: wrap;
+  padding-top: var(--s-5);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.statValue {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: var(--track-tight);
+}
+
+.statLabel {
+  font-size: 0.6875rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+}
+
+@media (max-width: 900px) {
+  .wrap {
+    grid-template-columns: 1fr;
+  }
+
+  .proof {
+    display: none;
+  }
+
+  .panel {
+    padding: var(--s-6) var(--s-4);
+  }
+}

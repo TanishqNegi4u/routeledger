@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1020" />
+    <title>RouteLedger — the operating system for daily delivery rounds</title>
+    <meta
+      name="description"
+      content="RouteLedger sequences the morning round, tracks every standing order and pause, bills the month from what was actually delivered, and tells you who to chase for money first."
+    />
+    <meta property="og:title" content="RouteLedger — run your delivery round without the notebook" />
+    <meta
+      property="og:description"
+      content="Route optimisation, standing orders, month-end billing and a risk-ranked collections queue for milk, water, tiffin and newspaper rounds."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f172a'/%3E%3Cpath d='M8 22c4-1 4-11 8-11s4 10 8 9' stroke='%2334d399' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='8' cy='22' r='2.6' fill='%2360a5fa'/%3E%3Ccircle cx='24' cy='20' r='2.6' fill='%23f472b6'/%3E%3C/svg%3E" />
+    <!-- Charts are drawn by Chart.js, loaded from CDN and used through window.Chart. -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"
+      integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi"
+      crossorigin="anonymous"
+      defer
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>RouteLedger needs JavaScript enabled to run the operator console.</noscript>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

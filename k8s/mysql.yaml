@@ -1,0 +1,143 @@
+# MySQL 8 as a StatefulSet rather than a Deployment: a database needs a stable
+# name and its own volume that survives a reschedule, and rolling two replicas
+# over one PVC is how people lose a customer ledger. One replica, one claim.
+#
+# Flyway (inside the API) owns the schema. This pod only ever creates an empty
+# database and the application account.
+apiVersion: v1
+kind: Service
+metadata:
+  name: routeledger-mysql
+  namespace: routeledger
+  labels:
+    app.kubernetes.io/name: routeledger
+    app.kubernetes.io/component: database
+spec:
+  # Headless: nothing load balances a single primary, and the API dials the pod
+  # by its stable DNS name.
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: routeledger
+    app.kubernetes.io/component: database
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: routeledger-mysql
+  namespace: routeledger
+  labels:
+    app.kubernetes.io/name: routeledger
+    app.kubernetes.io/component: database
+spec:
+  serviceName: routeledger-mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: routeledger
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: routeledger
+        app.kubernetes.io/component: database
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+        - name: mysql
+          image: mysql:8.0.37
+          imagePullPolicy: IfNotPresent
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+            - --default-time-zone=+05:30
+            - --max_connections=300
+            - --innodb_buffer_pool_size=512M
+          ports:
+            - name: mysql
+              containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: routeledger-config
+                  key: MYSQL_DATABASE
+            - name: MYSQL_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: routeledger-config
+                  key: MYSQL_USER
+            - name: TZ
+              valueFrom:
+                configMapKeyRef:
+                  name: routeledger-config
+                  key: TZ
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: routeledger-secrets
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: routeledger-secrets
+                  key: MYSQL_PASSWORD
+          # First boot initialises the data directory, which is slow; the startup
+          # probe buys it up to five minutes before liveness starts counting.
+          startupProbe:
+            exec:
+              command:
+                ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -u root -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            periodSeconds: 10
+            failureThreshold: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -u root -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+                ["sh", "-c", "mysqladmin ping -h 127.0.0.1 -u root -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 768Mi
+            limits:
+              cpu: "2"
+              memory: 1536Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        # Uncomment and set for clusters without a default StorageClass.
+        # storageClassName: standard
+        resources:
+          requests:
+            storage: 8Gi

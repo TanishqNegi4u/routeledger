@@ -1,0 +1,112 @@
+# RouteLedger - one-command local stack.
+#
+#   docker compose up --build
+#
+# Then:
+#   http://localhost:8080          operator console
+#   http://localhost:8081/swagger-ui.html   API reference
+#   owner@amrutdairy.in / Demo@12345        demo owner (seeded on first boot)
+#   ravi@amrutdairy.in  / Demo@12345        demo delivery agent
+#
+# Every credential below has a dev-only default and is overridable from a .env
+# file sitting next to this one. Copy .env.example to .env before any deployment
+# that is reachable from outside your laptop.
+
+name: routeledger
+
+services:
+  # ---------------------------------------------------------------------------
+  # MySQL 8. Flyway owns the schema; this container only creates the empty
+  # database and the application user.
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0.37
+    container_name: routeledger-mysql
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+05:30
+      - --max_connections=200
+      - --innodb_buffer_pool_size=256M
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-routeledger-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-routeledger}
+      MYSQL_USER: ${MYSQL_USER:-routeledger}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-routeledger}
+      TZ: Asia/Kolkata
+    ports:
+      # 3307 on the host so a MySQL you already run locally is not disturbed.
+      - "${MYSQL_HOST_PORT:-3307}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    networks: [routeledger]
+
+  # ---------------------------------------------------------------------------
+  # Spring Boot API. Waits for a genuinely healthy MySQL, then runs Flyway and
+  # seeds a realistic tenant on an empty database.
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: routeledger/api:1.0.0
+    container_name: routeledger-api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-routeledger}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata&characterEncoding=utf8
+      DB_USERNAME: ${MYSQL_USER:-routeledger}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-routeledger}
+      DB_POOL_MAX: 10
+      JWT_SECRET: ${JWT_SECRET:-change-me-routeledger-dev-secret-key-0123456789}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-86400}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:5173,http://localhost:4173}
+      DEMO_SEED: ${DEMO_SEED:-true}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-Demo@12345}
+      DEMO_HISTORY_DAYS: ${DEMO_HISTORY_DAYS:-45}
+      TZ: Asia/Kolkata
+    ports:
+      # Exposed so Swagger UI is reachable without going through nginx.
+      - "${API_HOST_PORT:-8081}:8080"
+    networks: [routeledger]
+
+  # ---------------------------------------------------------------------------
+  # React bundle behind nginx, which also reverse-proxies /api to the backend so
+  # the browser only ever talks to one origin.
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: routeledger/web:1.0.0
+    container_name: routeledger-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BACKEND_ORIGIN: http://backend:8080
+      TZ: Asia/Kolkata
+    ports:
+      - "${WEB_HOST_PORT:-8080}:8080"
+    networks: [routeledger]
+
+volumes:
+  mysql-data:
+    name: routeledger-mysql-data
+
+networks:
+  routeledger:
+    name: routeledger
+    driver: bridge

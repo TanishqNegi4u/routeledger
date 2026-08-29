@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: routeledger
+  labels:
+    app.kubernetes.io/name: routeledger
+    app.kubernetes.io/part-of: routeledger

@@ -1,0 +1,20 @@
+# Build output
+target/
+dist/
+node_modules/
+.vite/
+
+# Local secrets - never commit
+.env
+.env.local
+
+# Editors
+.idea/
+.vscode/
+*.iml
+*.swp
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

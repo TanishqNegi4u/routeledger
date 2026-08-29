@@ -1,0 +1,43 @@
+# Two ClusterIP services. Nothing is exposed with type: LoadBalancer here - the
+# Ingress in ingress.yaml is the single front door, which keeps TLS termination
+# and the public hostname in one place.
+#
+# The API is deliberately cluster-internal. The browser reaches it through the
+# web tier's /api proxy, so there is exactly one origin and no CORS preflight.
+apiVersion: v1
+kind: Service
+metadata:
+  name: routeledger-api
+  namespace: routeledger
+  labels:
+    app.kubernetes.io/name: routeledger
+    app.kubernetes.io/component: api
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: routeledger
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: routeledger-web
+  namespace: routeledger
+  labels:
+    app.kubernetes.io/name: routeledger
+    app.kubernetes.io/component: web
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: routeledger
+    app.kubernetes.io/component: web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

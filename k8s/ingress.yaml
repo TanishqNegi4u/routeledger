@@ -1,0 +1,43 @@
+# Single front door. Everything - the SPA, /api, /swagger-ui.html - goes to the
+# web tier, which proxies what belongs to the API. That is why there is one rule
+# and not a path-based split: the origin stays singular for the browser.
+#
+# Change the host, then:
+#   kubectl apply -f k8s/ingress.yaml
+#
+# On a laptop cluster you can skip this file entirely:
+#   kubectl -n routeledger port-forward svc/routeledger-web 8080:80
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: routeledger
+  namespace: routeledger
+  labels:
+    app.kubernetes.io/name: routeledger
+  annotations:
+    # ingress-nginx. Bills and run sheets are printed from the browser, so keep
+    # response buffering off for the API and allow a generous read timeout on
+    # invoice generation, which walks a month of stops.
+    nginx.ingress.kubernetes.io/proxy-body-size: "2m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Uncomment with cert-manager installed to get a real certificate.
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  # tls:
+  #   - hosts:
+  #       - routeledger.example.com
+  #     secretName: routeledger-tls
+  rules:
+    - host: routeledger.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: routeledger-web
+                port:
+                  number: 80

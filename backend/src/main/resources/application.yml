@@ -1,0 +1,102 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+  error:
+    include-message: always
+    include-binding-errors: never
+    include-stacktrace: never
+  tomcat:
+    max-swallow-size: 2MB
+    threads:
+      max: 100
+
+spring:
+  application:
+    name: routeledger-api
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/routeledger?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata&characterEncoding=utf8}
+    username: ${DB_USERNAME:routeledger}
+    password: ${DB_PASSWORD:routeledger}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: routeledger-pool
+      maximum-pool-size: ${DB_POOL_MAX:10}
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema. Hibernate must never touch it.
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          time_zone: Asia/Kolkata
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: false
+
+routeledger:
+  version: 1.0.0
+  jwt:
+    # MUST be overridden in every real deployment. 32+ characters, HS256.
+    secret: ${JWT_SECRET:change-me-routeledger-dev-secret-key-0123456789}
+    ttl-seconds: ${JWT_TTL_SECONDS:86400}
+    issuer: routeledger
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173,http://localhost}
+  demo:
+    # Generates a realistic tenant on first boot when the database is still empty.
+    seed: ${DEMO_SEED:true}
+    email: ${DEMO_EMAIL:owner@amrutdairy.in}
+    password: ${DEMO_PASSWORD:Demo@12345}
+    agent-email: ${DEMO_AGENT_EMAIL:ravi@amrutdairy.in}
+    history-days: ${DEMO_HISTORY_DAYS:45}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+
+logging:
+  level:
+    root: INFO
+    com.routeledger: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.web: INFO

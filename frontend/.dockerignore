@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+*.log
+.env
+.env.*
+.git/
+.gitignore
+.idea/
+.vscode/
+README.md

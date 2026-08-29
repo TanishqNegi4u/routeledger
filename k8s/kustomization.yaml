@@ -1,0 +1,37 @@
+# Apply the whole stack in dependency order:
+#   kubectl apply -k k8s/
+#
+# Then watch it come up:
+#   kubectl -n routeledger get pods -w
+#
+# The API waits on MySQL via an initContainer, so ordering inside the cluster is
+# enforced at runtime and not by the order of these files.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: routeledger
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - mysql.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+
+# Labels are set explicitly on each manifest rather than through a transformer.
+# commonLabels would also rewrite Deployment selectors, and a Deployment selector
+# is immutable - so bumping a version label would wedge the next apply.
+
+# Point these at your registry for a remote cluster, e.g.
+#   images:
+#     - name: routeledger/api
+#       newName: ghcr.io/you/routeledger-api
+#       newTag: 1.0.0
+images:
+  - name: routeledger/api
+    newTag: 1.0.0
+  - name: routeledger/web
+    newTag: 1.0.0
