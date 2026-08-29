@@ -1,10 +1,14 @@
 package com.routeledger.security;
 
+import jakarta.annotation.PostConstruct;
 import java.util.Arrays;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -19,7 +23,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Stateless JWT security. Only registration, login, the health probe and the OpenAPI
+ * Stateless JWT security. Only registration, login, the health/metrics probes and the OpenAPI
  * documents are public; every other endpoint requires a valid token and is scoped to the
  * tenant carried inside that token.
  */
@@ -27,6 +31,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     private static final String[] PUBLIC_PATHS = {
             "/api/auth/login",
@@ -38,6 +44,7 @@ public class SecurityConfig {
             "/actuator/health",
             "/actuator/health/**",
             "/actuator/info",
+            "/actuator/prometheus",
             "/v3/api-docs",
             "/v3/api-docs/**",
             "/swagger-ui.html",
@@ -46,14 +53,25 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final RestAuthEntryPoint restAuthEntryPoint;
+    private final Environment environment;
     private final String allowedOrigins;
 
     public SecurityConfig(JwtAuthFilter jwtAuthFilter,
                           RestAuthEntryPoint restAuthEntryPoint,
-                          @Value("${routeledger.cors.allowed-origins:*}") String allowedOrigins) {
+                          Environment environment,
+                          @Value("${routeledger.cors.allowed-origins:}") String allowedOrigins) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.restAuthEntryPoint = restAuthEntryPoint;
+        this.environment = environment;
         this.allowedOrigins = allowedOrigins;
+    }
+
+    @PostConstruct
+    void validateCorsConfiguration() {
+        boolean isProd = Arrays.asList(environment.getActiveProfiles()).contains("prod");
+        if (isProd && (allowedOrigins.isBlank() || allowedOrigins.contains("*"))) {
+            log.warn("SECURITY WARNING: CORS allowed-origins is set to '{}' in production profile. Explicit domains must be configured in production.", allowedOrigins);
+        }
     }
 
     @Bean

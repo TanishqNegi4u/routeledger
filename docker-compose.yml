@@ -50,7 +50,23 @@ services:
     networks: [routeledger]
 
   # ---------------------------------------------------------------------------
-  # Spring Boot API. Waits for a genuinely healthy MySQL, then runs Flyway and
+  # Redis 7. Distributed rate limiting and cluster caching.
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7.2-alpine
+    container_name: routeledger-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [routeledger]
+
+  # ---------------------------------------------------------------------------
+  # Spring Boot API. Waits for healthy MySQL and Redis, then runs Flyway and
   # seeds a realistic tenant on an empty database.
   # ---------------------------------------------------------------------------
   backend:
@@ -63,12 +79,17 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SERVER_PORT: 8080
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-routeledger}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata&characterEncoding=utf8
       DB_USERNAME: ${MYSQL_USER:-routeledger}
       DB_PASSWORD: ${MYSQL_PASSWORD:-routeledger}
       DB_POOL_MAX: 10
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      RATE_LIMIT_TYPE: ${RATE_LIMIT_TYPE:-redis}
       JWT_SECRET: ${JWT_SECRET:-change-me-routeledger-dev-secret-key-0123456789}
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-86400}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:5173,http://localhost:4173}

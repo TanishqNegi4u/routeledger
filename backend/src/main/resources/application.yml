@@ -53,6 +53,12 @@ spring:
     problemdetails:
       enabled: false
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
 routeledger:
   version: 1.0.0
   jwt:
@@ -61,7 +67,11 @@ routeledger:
     ttl-seconds: ${JWT_TTL_SECONDS:900}
     issuer: routeledger
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173,http://localhost}
+    # Fail-closed by default. Overridden via env in docker/k8s.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+  rate-limit:
+    # 'in-memory' for single-node / dev, 'redis' for horizontally scaled multi-pod production.
+    type: ${RATE_LIMIT_TYPE:in-memory}
   demo:
     # Generates a realistic tenant on first boot when the database is still empty.
     seed: ${DEMO_SEED:true}
@@ -74,13 +84,20 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
-      show-details: never
+      show-details: when_authorized
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
   health:
+    redis:
+      enabled: ${SPRING_REDIS_HEALTH_ENABLED:false}
     livenessstate:
       enabled: true
     readinessstate:

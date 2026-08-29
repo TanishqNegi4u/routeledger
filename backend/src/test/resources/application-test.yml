@@ -21,5 +21,12 @@ routeledger:
     issuer: routeledger
   cors:
     allowed-origins: "*"
+  rate-limit:
+    type: in-memory
   demo:
     seed: false
+
+management:
+  health:
+    redis:
+      enabled: false

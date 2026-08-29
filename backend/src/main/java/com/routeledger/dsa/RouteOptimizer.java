@@ -193,7 +193,9 @@ public final class RouteOptimizer {
         int swaps = 0;
         boolean improved = true;
         int passes = 0;
-        while (improved && passes < MAX_PASSES) {
+        // For large tours, adaptively bound passes so computation scales sub-second
+        int adaptiveMaxPasses = length > 200 ? Math.max(10, 2000 / length) : MAX_PASSES;
+        while (improved && passes < adaptiveMaxPasses) {
             improved = false;
             passes++;
             for (int i = 1; i < length - 1; i++) {

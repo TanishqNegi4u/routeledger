@@ -16,6 +16,7 @@ resources:
   - configmap.yaml
   - secret.yaml
   - mysql.yaml
+  - redis.yaml
   - deployment.yaml
   - service.yaml
   - ingress.yaml
