@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -80,8 +81,13 @@ public class GlobalExceptionHandler {
                 "Your role does not allow this action.", request, List.of());
     }
 
-    @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<ApiError> handleNoHandler(NoHandlerFoundException ex, HttpServletRequest request) {
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiError> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+        return build(HttpStatus.METHOD_NOT_ALLOWED, "HTTP method not allowed for this endpoint.", request, List.of());
+    }
+
+    @ExceptionHandler({NoHandlerFoundException.class, org.springframework.web.servlet.resource.NoResourceFoundException.class})
+    public ResponseEntity<ApiError> handleNoHandler(Exception ex, HttpServletRequest request) {
         return build(HttpStatus.NOT_FOUND, "No such endpoint.", request, List.of());
     }
 

@@ -83,8 +83,7 @@ public class PauseService {
     @Transactional
     public PauseDtos.PauseView create(Long businessId, PauseDtos.PauseRequest request) {
         Customer customer = customers.findByIdAndBusinessId(request.customerId(), businessId)
-                .orElseThrow(() -> new BadRequestException(
-                        "Customer " + request.customerId() + " does not belong to this business."));
+                .orElseThrow(() -> NotFoundException.of("Customer", request.customerId()));
         if (request.endOn().isBefore(request.startOn())) {
             throw new BadRequestException("The pause end date cannot be before the start date.");
         }
@@ -94,8 +93,7 @@ public class PauseService {
         Long subscriptionId = null;
         if (request.subscriptionId() != null) {
             Subscription line = subscriptions.findByIdAndBusinessId(request.subscriptionId(), businessId)
-                    .orElseThrow(() -> new BadRequestException(
-                            "Subscription " + request.subscriptionId() + " was not found."));
+                    .orElseThrow(() -> NotFoundException.of("Subscription", request.subscriptionId()));
             if (!line.getCustomerId().equals(customer.getId())) {
                 throw new BadRequestException("That subscription belongs to a different customer.");
             }

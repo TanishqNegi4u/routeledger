@@ -24,7 +24,7 @@ public class JwtService {
     private final String issuer;
 
     public JwtService(@Value("${routeledger.jwt.secret}") String secret,
-                      @Value("${routeledger.jwt.ttl-seconds:86400}") long ttlSeconds,
+                      @Value("${routeledger.jwt.ttl-seconds:900}") long ttlSeconds,
                       @Value("${routeledger.jwt.issuer:routeledger}") String issuer) {
         byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
         if (raw.length < 32) {

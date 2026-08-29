@@ -39,10 +39,25 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Exchange email and password for a bearer token")
+    @Operation(summary = "Exchange email and password for a bearer token and refresh token")
     public AuthDtos.AuthResponse login(@Valid @RequestBody AuthDtos.LoginRequest request,
                                        HttpServletRequest httpRequest) {
         return auth.login(request, clientIp(httpRequest));
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Rotate refresh token and issue a new short-lived access token")
+    public AuthDtos.AuthResponse refresh(@Valid @RequestBody AuthDtos.RefreshRequest request,
+                                         HttpServletRequest httpRequest) {
+        return auth.refresh(request, clientIp(httpRequest));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Revoke active refresh tokens server-side")
+    public ResponseEntity<Void> logout(@RequestBody(required = false) AuthDtos.LogoutRequest request,
+                                       @AuthenticationPrincipal AuthPrincipal principal) {
+        auth.logout(request, principal);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/verify")

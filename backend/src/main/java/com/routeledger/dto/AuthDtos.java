@@ -33,8 +33,16 @@ public final class AuthDtos {
                                String plan, String currency) {
     }
 
-    public record AuthResponse(String token, String tokenType, long expiresInSeconds,
+    public record AuthResponse(String token, String refreshToken, String tokenType, long expiresInSeconds,
                                UserView user, BusinessView business) {
+    }
+
+    public record RefreshRequest(
+            @NotBlank(message = "refreshToken is required") String refreshToken) {
+    }
+
+    public record LogoutRequest(
+            String refreshToken) {
     }
 
     /** Returned by GET /api/auth/me so a refreshed browser tab can rebuild its state. */

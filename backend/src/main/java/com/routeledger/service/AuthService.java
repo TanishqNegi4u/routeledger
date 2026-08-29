@@ -2,6 +2,7 @@ package com.routeledger.service;
 
 import com.routeledger.domain.Business;
 import com.routeledger.domain.Plan;
+import com.routeledger.domain.RefreshToken;
 import com.routeledger.domain.Role;
 import com.routeledger.domain.User;
 import com.routeledger.dto.AuthDtos;
@@ -11,6 +12,7 @@ import com.routeledger.exception.ConflictException;
 import com.routeledger.exception.NotFoundException;
 import com.routeledger.exception.RateLimitException;
 import com.routeledger.repository.BusinessRepository;
+import com.routeledger.repository.RefreshTokenRepository;
 import com.routeledger.repository.UserRepository;
 import com.routeledger.security.AuthPrincipal;
 import com.routeledger.security.JwtService;
@@ -22,6 +24,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
@@ -41,17 +46,23 @@ public class AuthService {
     private static final Duration LOCKOUT_WINDOW = Duration.ofMinutes(15);
     private static final Duration LOCKOUT_DURATION = Duration.ofMinutes(15);
 
+    /** Refresh token default TTL: 14 days. */
+    private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(14);
+
     private final BusinessRepository businesses;
     private final UserRepository users;
+    private final RefreshTokenRepository refreshTokens;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RateLimiter rateLimiter;
 
     public AuthService(BusinessRepository businesses, UserRepository users,
+                       RefreshTokenRepository refreshTokens,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
                        RateLimiter rateLimiter) {
         this.businesses = businesses;
         this.users = users;
+        this.refreshTokens = refreshTokens;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.rateLimiter = rateLimiter;
@@ -134,6 +145,74 @@ public class AuthService {
         return response(user, business);
     }
 
+    @Transactional
+    public AuthDtos.AuthResponse refresh(AuthDtos.RefreshRequest request, String clientIp) {
+        enforceIpLimit(clientIp, "refresh");
+
+        if (request == null || request.refreshToken() == null || request.refreshToken().isBlank()) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Refresh token is required.");
+        }
+
+        String rawToken = request.refreshToken().trim();
+        String tokenHash = hashToken(rawToken);
+
+        RefreshToken storedToken = refreshTokens.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid refresh token."));
+
+        // Replay attack detection: if token is already revoked, revoke its entire family!
+        if (storedToken.isRevoked()) {
+            log.warn("Replay attack detected on refresh token family {} for user {} from IP {}",
+                    storedToken.getFamilyId(), storedToken.getUserId(), clientIp);
+            refreshTokens.revokeFamily(storedToken.getFamilyId(), "REPLAY_ATTACK");
+            throw new ApiException(HttpStatus.UNAUTHORIZED,
+                    "Refresh token has been revoked. All sessions in this chain have been terminated.");
+        }
+
+        // Expiration check
+        if (Instant.now().isAfter(storedToken.getExpiresAt())) {
+            storedToken.setRevoked(true);
+            storedToken.setRevocationReason("EXPIRED");
+            refreshTokens.save(storedToken);
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Refresh token has expired. Please sign in again.");
+        }
+
+        // Invalidate the consumed token (one-time use rotation)
+        storedToken.setRevoked(true);
+        storedToken.setRevocationReason("ROTATED");
+        refreshTokens.save(storedToken);
+
+        // Lookup user & business
+        User user = users.findByIdAndBusinessId(storedToken.getUserId(), storedToken.getBusinessId())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "User account not found."));
+
+        if (!user.isActive()) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "User account is inactive.");
+        }
+
+        Business business = businesses.findById(storedToken.getBusinessId())
+                .orElseThrow(() -> NotFoundException.of("Business", storedToken.getBusinessId()));
+
+        // Issue new token in the SAME family
+        String newRefreshToken = issueAndSaveRefreshToken(user, storedToken.getFamilyId());
+        String newAccessToken = jwtService.issue(user);
+
+        return new AuthDtos.AuthResponse(newAccessToken, newRefreshToken, "Bearer", jwtService.ttlSeconds(),
+                userView(user), businessView(business));
+    }
+
+    @Transactional
+    public void logout(AuthDtos.LogoutRequest request, AuthPrincipal principal) {
+        if (request != null && request.refreshToken() != null && !request.refreshToken().isBlank()) {
+            String tokenHash = hashToken(request.refreshToken().trim());
+            refreshTokens.findByTokenHash(tokenHash).ifPresent(token -> {
+                refreshTokens.revokeFamily(token.getFamilyId(), "LOGOUT");
+            });
+        }
+        if (principal != null) {
+            refreshTokens.revokeAllForUser(principal.userId(), "USER_LOGOUT");
+        }
+    }
+
     @Transactional(readOnly = true)
     public AuthDtos.SessionView session(AuthPrincipal principal) {
         User user = users.findByIdAndBusinessId(principal.userId(), principal.businessId())
@@ -152,6 +231,8 @@ public class AuthService {
         }
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         users.save(user);
+        // Revoke all active refresh tokens on password change
+        refreshTokens.revokeAllForUser(user.getId(), "PASSWORD_CHANGED");
     }
 
     @Transactional
@@ -209,10 +290,46 @@ public class AuthService {
         users.save(user);
     }
 
+    // ---- refresh token helpers ----
+
+    private String issueAndSaveRefreshToken(User user, String familyId) {
+        String rawToken = UUID.randomUUID().toString().replace("-", "")
+                + UUID.randomUUID().toString().replace("-", "");
+        String tokenHash = hashToken(rawToken);
+
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setBusinessId(user.getBusinessId());
+        refreshToken.setUserId(user.getId());
+        refreshToken.setTokenHash(tokenHash);
+        refreshToken.setFamilyId(familyId != null ? familyId : UUID.randomUUID().toString());
+        refreshToken.setRevoked(false);
+        refreshToken.setExpiresAt(Instant.now().plus(REFRESH_TOKEN_TTL));
+
+        refreshTokens.save(refreshToken);
+        return rawToken;
+    }
+
+    private static String hashToken(String rawToken) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(rawToken.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
+    }
+
     // ---- response helpers ----
 
     private AuthDtos.AuthResponse response(User user, Business business) {
-        return new AuthDtos.AuthResponse(jwtService.issue(user), "Bearer", jwtService.ttlSeconds(),
+        String refreshToken = issueAndSaveRefreshToken(user, null);
+        return new AuthDtos.AuthResponse(jwtService.issue(user), refreshToken, "Bearer", jwtService.ttlSeconds(),
                 userView(user), businessView(business));
     }
 

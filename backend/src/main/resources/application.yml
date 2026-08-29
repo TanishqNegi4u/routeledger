@@ -58,7 +58,7 @@ routeledger:
   jwt:
     # MUST be overridden in every real deployment. 32+ characters, HS256.
     secret: ${JWT_SECRET:change-me-routeledger-dev-secret-key-0123456789}
-    ttl-seconds: ${JWT_TTL_SECONDS:86400}
+    ttl-seconds: ${JWT_TTL_SECONDS:900}
     issuer: routeledger
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173,http://localhost}

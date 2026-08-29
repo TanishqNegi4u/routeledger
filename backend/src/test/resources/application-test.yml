@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: routeledger-test
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3307/routeledger_test?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata&characterEncoding=utf8}
+    username: ${DB_USERNAME:routeledger}
+    password: ${DB_PASSWORD:routeledger}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+routeledger:
+  jwt:
+    secret: test-secret-key-that-is-at-least-32-characters-long!
+    ttl-seconds: 900
+    issuer: routeledger
+  cors:
+    allowed-origins: "*"
+  demo:
+    seed: false
