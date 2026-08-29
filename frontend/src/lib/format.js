@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Formatting helpers. The API speaks in paise (integer) and ISO dates; the UI speaks in rupees and
  * Indian date conventions. All conversion happens here so no component ever divides by 100 inline.

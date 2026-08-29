@@ -25,4 +25,15 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 900,
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/test/setup.js',
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
+  },
 });

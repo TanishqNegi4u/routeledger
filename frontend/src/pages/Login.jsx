@@ -38,7 +38,7 @@ export default function Login() {
     }
   };
 
-  const useDemo = (demoEmail) => {
+  const handleSelectDemo = (demoEmail) => {
     setEmail(demoEmail);
     setPassword(DEMO_PASSWORD);
     setFailure(null);
@@ -120,7 +120,12 @@ export default function Login() {
                     {account.note}
                   </span>
                 </span>
-                <button type="button" className="btn btn-sm" onClick={() => useDemo(account.email)}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  aria-label={`Use ${account.label} demo account`}
+                  onClick={() => handleSelectDemo(account.email)}
+                >
                   Use
                 </button>
               </div>

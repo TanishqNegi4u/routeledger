@@ -1,37 +1,56 @@
+// @ts-check
 import axios from 'axios';
 import { navigate } from './router.jsx';
 
 /**
  * The single axios instance every screen talks through.
  *
- * Two things happen here so no component has to think about them: the bearer token is attached on
- * the way out, and every failure is turned into an `ApiError`-shaped object with a message that is
- * already safe to show a user. A 401 clears the session and bounces to the login page.
+ * Short-lived access tokens are stored in memory only (never written to localStorage/sessionStorage).
+ * The rotating refresh token is stored in localStorage to preserve the user's session across tab reloads.
+ * On 401 Unauthorized, an automatic silent token refresh is attempted before forcing logout.
  */
 
-const TOKEN_KEY = 'routeledger.token';
+const REFRESH_TOKEN_KEY = 'routeledger.refresh_token';
 const SESSION_KEY = 'routeledger.session';
 
-export const client = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 25000,
-  headers: { 'Content-Type': 'application/json' },
-});
+let inMemoryAccessToken = null;
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 export const tokenStore = {
-  read() {
+  getAccessToken() {
+    return inMemoryAccessToken;
+  },
+  setAccessToken(token) {
+    inMemoryAccessToken = token || null;
+  },
+  getRefreshToken() {
     try {
-      return window.localStorage.getItem(TOKEN_KEY);
+      return window.localStorage.getItem(REFRESH_TOKEN_KEY);
     } catch {
       return null;
     }
   },
-  write(token) {
+  setRefreshToken(refreshToken) {
     try {
-      if (token) window.localStorage.setItem(TOKEN_KEY, token);
-      else window.localStorage.removeItem(TOKEN_KEY);
+      if (refreshToken) {
+        window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      } else {
+        window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+      }
     } catch {
-      /* private mode - the app still works for the length of the tab */
+      /* private mode */
     }
   },
   readSession() {
@@ -51,13 +70,20 @@ export const tokenStore = {
     }
   },
   clear() {
-    this.write(null);
+    inMemoryAccessToken = null;
+    this.setRefreshToken(null);
     this.writeSession(null);
   },
 };
 
+export const client = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  timeout: 25000,
+  headers: { 'Content-Type': 'application/json' },
+});
+
 client.interceptors.request.use((config) => {
-  const token = tokenStore.read();
+  const token = tokenStore.getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -66,20 +92,76 @@ client.interceptors.request.use((config) => {
 
 client.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(normalise(error)),
+  async (error) => {
+    const originalRequest = error.config;
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Don't loop on refresh/logout endpoints
+      const url = originalRequest.url || '';
+      if (url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout')) {
+        tokenStore.clear();
+        return Promise.reject(normalise(error));
+      }
+
+      const refreshToken = tokenStore.getRefreshToken();
+      if (!refreshToken) {
+        tokenStore.clear();
+        if (!window.location.pathname.startsWith('/login')) {
+          navigate('/login?expired=1', { replace: true });
+        }
+        return Promise.reject(normalise(error));
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((newToken) => {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return client(originalRequest);
+          })
+          .catch((err) => Promise.reject(normalise(err)));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshResponse = await axios.post(
+          `${client.defaults.baseURL}/auth/refresh`,
+          { refreshToken },
+          { headers: { 'Content-Type': 'application/json' } },
+        );
+        const { token: newAccessToken, refreshToken: newRefreshToken } = refreshResponse.data;
+        tokenStore.setAccessToken(newAccessToken);
+        if (newRefreshToken) {
+          tokenStore.setRefreshToken(newRefreshToken);
+        }
+        client.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        processQueue(null, newAccessToken);
+        return client(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+        tokenStore.clear();
+        if (!window.location.pathname.startsWith('/login')) {
+          navigate('/login?expired=1', { replace: true });
+        }
+        return Promise.reject(normalise(refreshError));
+      } finally {
+        isRefreshing = false;
+      }
+    }
+    return Promise.reject(normalise(error));
+  },
 );
 
 /** Turns any axios failure into `{ status, message, fieldErrors, raw }`. Never throws itself. */
-function normalise(error) {
+export function normalise(error) {
   if (error.response) {
     const { status, data } = error.response;
     const fieldErrors = Array.isArray(data?.fieldErrors) ? data.fieldErrors : [];
     let message = data?.message || data?.error || `Request failed (${status}).`;
     if (status === 401) {
-      tokenStore.clear();
-      if (!window.location.pathname.startsWith('/login')) {
-        navigate('/login?expired=1', { replace: true });
-      }
       message = 'Your session has expired. Please sign in again.';
     }
     if (status === 403) {
@@ -100,103 +182,89 @@ function normalise(error) {
   };
 }
 
-const unwrap = (promise) => promise.then((response) => response.data);
-
-/** Drops null/undefined/'' so we never send `?routeId=` and confuse the binder. */
-function params(input = {}) {
-  const out = {};
-  Object.entries(input).forEach(([key, value]) => {
-    if (value !== null && value !== undefined && value !== '') {
-      out[key] = value;
-    }
-  });
-  return out;
-}
-
 export const api = {
-  ping: () => unwrap(client.get('/public/ping')),
-
   auth: {
-    login: (body) => unwrap(client.post('/auth/login', body)),
-    register: (body) => unwrap(client.post('/auth/register', body)),
-    me: () => unwrap(client.get('/auth/me')),
-    changePassword: (body) => unwrap(client.post('/auth/change-password', body)),
+    login: (body) => client.post('/auth/login', body).then((r) => r.data),
+    register: (body) => client.post('/auth/register', body).then((r) => r.data),
+    refresh: (body) => client.post('/auth/refresh', body).then((r) => r.data),
+    logout: (body) => client.post('/auth/logout', body).then((r) => r.data),
+    verifyEmail: (token) => client.post(`/auth/verify?token=${encodeURIComponent(token)}`).then((r) => r.data),
+    me: () => client.get('/auth/me').then((r) => r.data),
+    changePassword: (body) => client.post('/auth/password', body).then((r) => r.data),
   },
 
   dashboard: {
-    overview: (from, to) => unwrap(client.get('/dashboard', { params: params({ from, to }) })),
-  },
-
-  routes: {
-    list: (activeOnly) => unwrap(client.get('/routes', { params: params({ activeOnly }) })),
-    staff: () => unwrap(client.get('/routes/staff')),
-    get: (id) => unwrap(client.get(`/routes/${id}`)),
-    create: (body) => unwrap(client.post('/routes', body)),
-    update: (id, body) => unwrap(client.put(`/routes/${id}`, body)),
-    setActive: (id, active) => unwrap(client.patch(`/routes/${id}/active`, null, { params: { active } })),
-  },
-
-  products: {
-    page: (page, size) => unwrap(client.get('/products', { params: params({ page, size }) })),
-    active: () => unwrap(client.get('/products/active')),
-    create: (body) => unwrap(client.post('/products', body)),
-    update: (id, body) => unwrap(client.put(`/products/${id}`, body)),
-    setActive: (id, active) =>
-      unwrap(client.patch(`/products/${id}/active`, null, { params: { active } })),
+    summary: () => client.get('/dashboard/summary').then((r) => r.data),
   },
 
   customers: {
-    page: (query) => unwrap(client.get('/customers', { params: params(query) })),
-    search: (q, limit) => unwrap(client.get('/customers/search', { params: params({ q, limit }) })),
-    beats: (query) => unwrap(client.get('/customers/beats', { params: params(query) })),
-    get: (id) => unwrap(client.get(`/customers/${id}`)),
-    create: (body) => unwrap(client.post('/customers', body)),
-    update: (id, body) => unwrap(client.put(`/customers/${id}`, body)),
-    setActive: (id, active) =>
-      unwrap(client.patch(`/customers/${id}/active`, null, { params: { active } })),
+    page: (params) => client.get('/customers', { params }).then((r) => r.data),
+    search: (q, limit = 10) => client.get('/customers/search', { params: { q, limit } }).then((r) => r.data),
+    get: (id) => client.get(`/customers/${id}`).then((r) => r.data),
+    create: (body) => client.post('/customers', body).then((r) => r.data),
+    update: (id, body) => client.put(`/customers/${id}`, body).then((r) => r.data),
+    setActive: (id, active) => client.patch(`/customers/${id}/active`, null, { params: { active } }).then((r) => r.data),
+    planBeats: (params) => client.get('/customers/beats', { params }).then((r) => r.data),
+  },
+
+  products: {
+    page: (params) => client.get('/products', { params }).then((r) => r.data),
+    active: () => client.get('/products/active').then((r) => r.data),
+    get: (id) => client.get(`/products/${id}`).then((r) => r.data),
+    create: (body) => client.post('/products', body).then((r) => r.data),
+    update: (id, body) => client.put(`/products/${id}`, body).then((r) => r.data),
+    setActive: (id, active) => client.patch(`/products/${id}/active`, null, { params: { active } }).then((r) => r.data),
+  },
+
+  routes: {
+    list: (activeOnly = false) => client.get('/routes', { params: { activeOnly } }).then((r) => r.data),
+    get: (id) => client.get(`/routes/${id}`).then((r) => r.data),
+    create: (body) => client.post('/routes', body).then((r) => r.data),
+    update: (id, body) => client.put(`/routes/${id}`, body).then((r) => r.data),
+    setActive: (id, active) => client.patch(`/routes/${id}/active`, null, { params: { active } }).then((r) => r.data),
   },
 
   subscriptions: {
-    forCustomer: (customerId) => unwrap(client.get('/subscriptions', { params: { customerId } })),
-    create: (body) => unwrap(client.post('/subscriptions', body)),
-    update: (id, body) => unwrap(client.put(`/subscriptions/${id}`, body)),
-    setActive: (id, active) =>
-      unwrap(client.patch(`/subscriptions/${id}/active`, null, { params: { active } })),
+    forCustomer: (customerId) => client.get('/subscriptions', { params: { customerId } }).then((r) => r.data),
+    get: (id) => client.get(`/subscriptions/${id}`).then((r) => r.data),
+    create: (body) => client.post('/subscriptions', body).then((r) => r.data),
+    update: (id, body) => client.put(`/subscriptions/${id}`, body).then((r) => r.data),
+    setActive: (id, active) => client.patch(`/subscriptions/${id}/active`, null, { params: { active } }).then((r) => r.data),
   },
 
   pauses: {
-    forCustomer: (customerId) => unwrap(client.get('/pauses', { params: { customerId } })),
-    calendar: (from, to) => unwrap(client.get('/pauses/calendar', { params: params({ from, to }) })),
-    create: (body) => unwrap(client.post('/pauses', body)),
-    remove: (id) => unwrap(client.delete(`/pauses/${id}`)),
+    forCustomer: (customerId) => client.get('/pauses', { params: { customerId } }).then((r) => r.data),
+    calendar: (from, to) => client.get('/pauses/calendar', { params: { from, to } }).then((r) => r.data),
+    create: (body) => client.post('/pauses', body).then((r) => r.data),
+    delete: (id) => client.delete(`/pauses/${id}`).then((r) => r.data),
   },
 
   runs: {
-    generate: (body) => unwrap(client.post('/runs/generate', body)),
-    page: (page, size) => unwrap(client.get('/runs', { params: params({ page, size }) })),
-    byDate: (date) => unwrap(client.get('/runs/by-date', { params: params({ date }) })),
-    mine: (date) => unwrap(client.get('/runs/mine', { params: params({ date }) })),
-    detail: (id) => unwrap(client.get(`/runs/${id}`)),
-    updateStop: (stopId, body) => unwrap(client.patch(`/runs/stops/${stopId}`, body)),
+    page: (params) => client.get('/runs', { params }).then((r) => r.data),
+    byDate: (date) => client.get('/runs/by-date', { params: { date } }).then((r) => r.data),
+    mine: (date) => client.get('/runs/mine', { params: { date } }).then((r) => r.data),
+    get: (id) => client.get(`/runs/${id}`).then((r) => r.data),
+    generate: (body) => client.post('/runs/generate', body).then((r) => r.data),
+    updateStop: (stopId, body) => client.patch(`/runs/stops/${stopId}`, body).then((r) => r.data),
   },
 
   invoices: {
-    generate: (body) => unwrap(client.post('/invoices/generate', body)),
-    page: (query) => unwrap(client.get('/invoices', { params: params(query) })),
-    forCustomer: (customerId) => unwrap(client.get(`/invoices/by-customer/${customerId}`)),
-    get: (id) => unwrap(client.get(`/invoices/${id}`)),
-    payments: (id) => unwrap(client.get(`/invoices/${id}/payments`)),
-    adjust: (id, body) => unwrap(client.patch(`/invoices/${id}/adjust`, body)),
-    cancel: (id) => unwrap(client.patch(`/invoices/${id}/cancel`)),
+    page: (params) => client.get('/invoices', { params }).then((r) => r.data),
+    forCustomer: (customerId) => client.get(`/invoices/by-customer/${customerId}`).then((r) => r.data),
+    get: (id) => client.get(`/invoices/${id}`).then((r) => r.data),
+    payments: (id) => client.get(`/invoices/${id}/payments`).then((r) => r.data),
+    generate: (body) => client.post('/invoices/generate', body).then((r) => r.data),
+    adjust: (id, body) => client.patch(`/invoices/${id}/adjust`, body).then((r) => r.data),
+    cancel: (id) => client.patch(`/invoices/${id}/cancel`).then((r) => r.data),
   },
 
   payments: {
-    record: (body) => unwrap(client.post('/payments', body)),
-    page: (query) => unwrap(client.get('/payments', { params: params(query) })),
-    forCustomer: (customerId) => unwrap(client.get(`/payments/by-customer/${customerId}`)),
+    page: (params) => client.get('/payments', { params }).then((r) => r.data),
+    forCustomer: (customerId) => client.get(`/payments/by-customer/${customerId}`).then((r) => r.data),
+    record: (body) => client.post('/payments', body).then((r) => r.data),
   },
 
   collections: {
-    dues: (limit) => unwrap(client.get('/collections/dues', { params: params({ limit }) })),
+    dues: (limit = 50) => client.get('/collections/dues', { params: { limit } }).then((r) => r.data),
   },
 };

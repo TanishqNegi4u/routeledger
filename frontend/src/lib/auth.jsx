@@ -3,29 +3,39 @@ import { api, tokenStore } from './api.js';
 import { navigate } from './router.jsx';
 
 /**
- * Session state.
+ * Session state and authentication provider.
  *
- * The token and a cached copy of the session are kept in localStorage so a refresh does not bounce
- * the operator back to the login screen. On boot we still re-validate against `GET /auth/me`, so a
- * revoked or expired token is caught immediately rather than on the first real action.
+ * Access token is maintained in-memory only.
+ * Rotating refresh token is stored in localStorage.
+ * On application boot, if a refresh token exists, a silent refresh is performed to rehydrate the session.
  */
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => tokenStore.readSession());
-  const [booting, setBooting] = useState(() => Boolean(tokenStore.read()));
+  const [booting, setBooting] = useState(() => Boolean(tokenStore.getRefreshToken()));
 
   useEffect(() => {
     let cancelled = false;
-    if (!tokenStore.read()) {
+    const refreshToken = tokenStore.getRefreshToken();
+    if (!refreshToken) {
       setBooting(false);
       return () => {};
     }
+
     api.auth
-      .me()
+      .refresh({ refreshToken })
+      .then((authResponse) => {
+        if (cancelled) return null;
+        tokenStore.setAccessToken(authResponse.token);
+        if (authResponse.refreshToken) {
+          tokenStore.setRefreshToken(authResponse.refreshToken);
+        }
+        return api.auth.me();
+      })
       .then((fresh) => {
-        if (cancelled) return;
+        if (cancelled || !fresh) return;
         setSession(fresh);
         tokenStore.writeSession(fresh);
       })
@@ -37,13 +47,17 @@ export function AuthProvider({ children }) {
       .finally(() => {
         if (!cancelled) setBooting(false);
       });
+
     return () => {
       cancelled = true;
     };
   }, []);
 
   const adopt = useCallback((authResponse) => {
-    tokenStore.write(authResponse.token);
+    tokenStore.setAccessToken(authResponse.token);
+    if (authResponse.refreshToken) {
+      tokenStore.setRefreshToken(authResponse.refreshToken);
+    }
     const next = { user: authResponse.user, business: authResponse.business };
     tokenStore.writeSession(next);
     setSession(next);
@@ -66,7 +80,15 @@ export function AuthProvider({ children }) {
     [adopt],
   );
 
-  const logout = useCallback((destination = '/login') => {
+  const logout = useCallback(async (destination = '/login') => {
+    const refreshToken = tokenStore.getRefreshToken();
+    if (refreshToken) {
+      try {
+        await api.auth.logout({ refreshToken });
+      } catch {
+        /* ignore network failure on logout */
+      }
+    }
     tokenStore.clear();
     setSession(null);
     navigate(destination, { replace: true });

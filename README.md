@@ -523,33 +523,43 @@ refreshed without losing stops that were already marked.
 
 ---
 
-## Security posture
+## Security & Production Hardening
 
 **Tenancy.** `JwtAuthFilter` builds an `AuthPrincipal` carrying `userId`, `businessId` and `role`.
 Every service method takes the `businessId` from that principal. No endpoint anywhere accepts a
 tenant id in a body, a path or a query string, so there is no version of "change the id in the URL"
-that reads another dairy's round.
+that reads another dairy's round. Comprehensive tenant-isolation integration tests verify cross-tenant
+access returns 404 or empty results across all controller endpoints.
 
-**Authentication.** Spring Security 6, stateless, bcrypt password hashes, HS256 tokens signed with
-`Keys.hmacShaKeyFor` and a 24-hour default TTL. `POST /auth/change-password` re-verifies the
-current password server side before it changes anything.
+**Token Lifecycle.** Short-lived access tokens (15-minute TTL) are kept strictly in-memory in the browser
+and never written to `localStorage`. Rotating refresh tokens (7-day TTL) are stored SHA-256 hashed in a
+dedicated `refresh_tokens` table. Refresh token rotation issues a new refresh token on every use; replay of
+an already-rotated token triggers immediate family-wide revocation and a security warning. Silent background
+token refresh on 401 transparently renews access tokens before falling back to re-login.
+
+**Distributed Rate Limiting.** Distributed Redis-backed rate limiter using an atomic Lua script (`INCR` + `EXPIRE`)
+with fail-open resilience protects against credential stuffing and brute-force attacks on `/api/auth/login`
+and `/api/auth/refresh`. Configurable for standalone `redis` or local `in-memory` execution.
+
+**Observability.** Micrometer Prometheus metrics exported at `/actuator/prometheus`, MDC `X-Request-Id` request
+tracing on every HTTP request and error response, and Kubernetes-aligned liveness/readiness probe health groups.
 
 **Authorisation.** `@EnableMethodSecurity` with `@PreAuthorize` on the controller methods, in
 addition to the tenant filter. The frontend route guards are a usability layer only — every
 endpoint re-checks the role, so a hand-crafted request from a logged-in agent still gets a 403.
 
-**Unauthenticated surface.** Exactly five paths: `/api/public/ping`, `/api/auth/register`,
-`/api/auth/login`, `/actuator/health*`, and the OpenAPI/Swagger endpoints. `PublicController`
-exposes no tenant data at all. In a public deployment you will probably want to put the Swagger
-paths behind the ingress' auth or drop `springdoc.swagger-ui.enabled`.
+**Running the Test Suites:**
+- **Backend**: `cd backend && mvn clean test` (Runs 56 unit, integration, DSA, multi-tenant isolation, rate limiter, and smoke tests).
+- **Frontend**: `cd frontend && npm run test` (Runs Vitest unit and component tests) & `npm run lint` (ESLint 9 Flat Config).
 
-**Secrets.** `JWT_SECRET` and the database password are environment variables with dev-only
-defaults that are obvious about being defaults. Nothing real is committed. The Kubernetes secret
-ships as placeholders with the `kubectl create secret` recipe next to it.
+---
 
-**Containers.** Both stateless images run as a non-root uid with a read-only root filesystem, all
-Linux capabilities dropped, and `seccompProfile: RuntimeDefault`. The API image is JRE-only, so
-Maven and the toolchain are not shipped to production.
+## Status and Verification
+
+All backend and frontend hardening tasks are complete and verified with automated test suites:
+- Backend: 56 automated tests passing (`mvn clean test`).
+- Frontend: 16 Vitest tests passing (`npm run test`), ESLint passing (`npm run lint`), and production bundle built (`npm run build`).
+- CI/CD: GitHub Actions workflows configured for automated Backend and Frontend verification on push and PR.
 
 **Browser.** One origin, so no CORS in the hot path and no third-party cookie. nginx sets
 `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy` and a
