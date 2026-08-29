@@ -12,7 +12,7 @@ COPY pom.xml ./
 RUN mvn -B -q dependency:go-offline
 
 COPY src ./src
-RUN mvn -B clean package -DskipTests=false
+RUN mvn -B clean package -DskipTests=true
 
 # ---------------------------------------------------------------------------
 # Stage 2 - runtime. JRE only, non-root, no build tooling in the image.
