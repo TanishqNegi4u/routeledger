@@ -1,4 +1,5 @@
-target/
+target/*
+!target/routeledger-api.jar
 .mvn/
 mvnw
 mvnw.cmd
