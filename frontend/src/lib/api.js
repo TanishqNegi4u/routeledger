@@ -276,4 +276,12 @@ export const api = {
   collections: {
     dues: (limit = 50) => client.get('/collections/dues', { params: { limit } }).then((r) => r.data),
   },
+
+  marketplace: {
+    vendors: () => client.get('/marketplace/vendors').then((r) => r.data),
+    subscribe: (body) => client.post('/marketplace/subscribe', body).then((r) => r.data),
+    mySubscriptions: (phone) => client.get('/marketplace/my-subscriptions', { params: { phone } }).then((r) => r.data),
+    quickSkipTomorrow: (phone, subscriptionId) =>
+      client.post('/marketplace/quick-skip-tomorrow', null, { params: { phone, subscriptionId } }).then((r) => r.data),
+  },
 };

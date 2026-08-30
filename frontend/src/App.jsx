@@ -84,8 +84,9 @@ const ROUTES = [
   { path: '/login', render: () => <PublicOnly><Login /></PublicOnly> },
   { path: '/register', render: () => <PublicOnly><Register /></PublicOnly> },
 
-  // Customer Self-Service Portal
-  { path: '/portal', render: () => <Guarded roles={ALL}><CustomerPortal /></Guarded> },
+  // Standalone Consumer & Customer Portal
+  { path: '/portal', render: () => <CustomerPortal /> },
+  { path: '/customer', render: () => <CustomerPortal /> },
 
   { path: '/app', render: () => <Guarded roles={MANAGE}><Dashboard /></Guarded> },
   { path: '/app/approvals', render: () => <Guarded roles={['OWNER']}><Approvals /></Guarded> },

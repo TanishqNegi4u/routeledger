@@ -41,6 +41,7 @@ public class SecurityConfig {
             "/api/auth/refresh",
             "/api/auth/logout",
             "/api/public/**",
+            "/api/marketplace/**",
             "/actuator/health",
             "/actuator/health/**",
             "/actuator/info",
