@@ -221,6 +221,8 @@ export const api = {
     list: (activeOnly = false) => client.get('/routes', { params: { activeOnly } }).then((r) => r.data),
     /** Everyone on the payroll, for assigning a beat to an agent. */
     staff: () => client.get('/routes/staff').then((r) => r.data),
+    createStaff: (body) => client.post('/routes/staff', body).then((r) => r.data),
+    deleteStaff: (id) => client.delete(`/routes/staff/${id}`).then((r) => r.data),
     get: (id) => client.get(`/routes/${id}`).then((r) => r.data),
     create: (body) => client.post('/routes', body).then((r) => r.data),
     update: (id, body) => client.put(`/routes/${id}`, body).then((r) => r.data),

@@ -17,6 +17,9 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.routeledger.domain.Role;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 /** Beats (routes). Each one owns a depot, which is where every optimised tour starts. */
 @Service
 public class RouteService {
@@ -24,11 +27,14 @@ public class RouteService {
     private final RouteRepository routes;
     private final UserRepository users;
     private final CustomerRepository customers;
+    private final PasswordEncoder encoder;
 
-    public RouteService(RouteRepository routes, UserRepository users, CustomerRepository customers) {
+    public RouteService(RouteRepository routes, UserRepository users, CustomerRepository customers,
+                        PasswordEncoder encoder) {
         this.routes = routes;
         this.users = users;
         this.customers = customers;
+        this.encoder = encoder;
     }
 
     @Transactional(readOnly = true)
@@ -62,6 +68,51 @@ public class RouteService {
                     user.getPhone(), user.getRole().name(), user.isEmailVerified()));
         }
         return views;
+    }
+
+    @Transactional
+    public AuthDtos.UserView createStaff(Long businessId, AuthDtos.CreateStaffRequest request) {
+        String email = request.email().trim().toLowerCase();
+        if (users.existsByEmailIgnoreCase(email)) {
+            throw new ConflictException("A user with email '" + email + "' already exists.");
+        }
+        Role role;
+        try {
+            role = Role.valueOf(request.role().trim().toUpperCase());
+        } catch (Exception e) {
+            role = Role.AGENT;
+        }
+
+        User user = new User();
+        user.setBusinessId(businessId);
+        user.setName(request.name().trim());
+        user.setEmail(email);
+        user.setPhone(request.phone().trim());
+        user.setPasswordHash(encoder.encode(request.password()));
+        user.setRole(role);
+        user.setActive(true);
+        user.setEmailVerified(true);
+        User saved = users.save(user);
+
+        return new AuthDtos.UserView(saved.getId(), saved.getName(), saved.getEmail(),
+                saved.getPhone(), saved.getRole().name(), saved.isEmailVerified());
+    }
+
+    @Transactional
+    public void deleteStaff(Long businessId, Long staffId) {
+        User user = users.findByIdAndBusinessId(staffId, businessId)
+                .orElseThrow(() -> NotFoundException.of("Staff user", staffId));
+
+        // Unassign from routes
+        List<Route> assignedRoutes = routes.findByBusinessIdOrderByNameAsc(businessId);
+        for (Route r : assignedRoutes) {
+            if (staffId.equals(r.getAgentId())) {
+                r.setAgentId(null);
+                routes.save(r);
+            }
+        }
+
+        users.delete(user);
     }
 
     @Transactional(readOnly = true)

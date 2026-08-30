@@ -56,4 +56,13 @@ public final class AuthDtos {
             @NotBlank String currentPassword,
             @NotBlank @Size(min = 8, max = 72) String newPassword) {
     }
+
+    public record CreateStaffRequest(
+            @NotBlank @Size(max = 120) String name,
+            @NotBlank @Email @Size(max = 190) String email,
+            @NotBlank @Pattern(regexp = "^[0-9+][0-9 \\-]{7,19}$",
+                    message = "phone must be 8-20 characters of digits, spaces or dashes") String phone,
+            @NotBlank String role,
+            @NotBlank @Size(min = 6, max = 72, message = "password must be 6-72 characters") String password) {
+    }
 }

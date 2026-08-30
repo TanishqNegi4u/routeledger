@@ -18,18 +18,32 @@ import { initials } from '../lib/format.js';
 import styles from './Dashboard.module.css';
 
 /**
- * Account and team. Deliberately thin: everything operational lives on its own screen, and the one
- * genuinely sensitive action here — changing a password — re-checks the current one server side.
+ * Account, team and staff management.
+ * Owners can add new delivery agents / managers and remove staff members.
  */
 
 export default function Settings() {
   const toast = useToast();
   const { user, business, role, canManage, logout } = useAuth();
+  const isOwner = role === 'OWNER';
+
+  // Password change state
   const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirm: '' });
   const [issues, setIssues] = useState({});
   const [busy, setBusy] = useState(false);
 
+  // Staff management state
   const staff = useAsync(() => api.routes.staff(), [], { skip: !canManage });
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'AGENT',
+    password: '',
+  });
+  const [addBusy, setAddBusy] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const set = (key) => (event) => {
     const value = event.target.value;
@@ -68,11 +82,56 @@ export default function Settings() {
     }
   };
 
+  const handleAddStaff = async (e) => {
+    e.preventDefault();
+    if (!addForm.name.trim() || !addForm.email.trim() || !addForm.phone.trim() || !addForm.password) {
+      toast.warn('Please fill in all fields.');
+      return;
+    }
+    setAddBusy(true);
+    try {
+      await api.routes.createStaff({
+        name: addForm.name.trim(),
+        email: addForm.email.trim().toLowerCase(),
+        phone: addForm.phone.trim(),
+        role: addForm.role,
+        password: addForm.password,
+      });
+      toast.success(
+        `Added ${addForm.name} as ${humanise(addForm.role)}`,
+        `They can now sign in at /login with their email and password.`
+      );
+      setAddForm({ name: '', email: '', phone: '', role: 'AGENT', password: '' });
+      setShowAddModal(false);
+      staff.reload();
+    } catch (error) {
+      toast.fromError(error, 'Could not add staff member');
+    } finally {
+      setAddBusy(false);
+    }
+  };
+
+  const handleDeleteStaff = async (member) => {
+    if (!window.confirm(`Are you sure you want to remove ${member.name} (${humanise(member.role)})?`)) {
+      return;
+    }
+    setDeletingId(member.id);
+    try {
+      await api.routes.deleteStaff(member.id);
+      toast.success(`Removed ${member.name}`, 'They have been unassigned from routes and removed.');
+      staff.reload();
+    } catch (error) {
+      toast.fromError(error, 'Could not remove staff member');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <>
       <PageHeader
         title="Settings"
-        subtitle="Your account, your business and who else can sign in."
+        subtitle="Your account, your business and team permissions."
       >
         <button type="button" className="btn btn-sm" onClick={() => logout('/')}>
           Sign out
@@ -110,7 +169,7 @@ export default function Settings() {
               <StatusBadge value="ACTIVE">{humanise(role)}</StatusBadge>
               <span className="hint">
                 {role === 'OWNER'
-                  ? 'Full access, including billing and team.'
+                  ? 'Full access, including billing, customer approvals and team management.'
                   : role === 'MANAGER'
                     ? 'Everything except account ownership.'
                     : 'Your round, plus recording payments and pauses at the door.'}
@@ -149,8 +208,7 @@ export default function Settings() {
             </div>
             <p className="hint" style={{ margin: 0 }}>
               Every row this account can read is scoped to this business by the token you signed in with —
-              the tenant id is never taken from a request body, so one business can never read another's
-              round.
+              the tenant id is never taken from a request body.
             </p>
           </div>
         </Card>
@@ -206,11 +264,12 @@ export default function Settings() {
           </form>
         </Card>
 
+        {/* TEAM & AGENT MANAGEMENT */}
         <Card
-          title="Team"
+          title="Team & Delivery Agents"
           subtitle={
             canManage
-              ? 'Everyone who can sign in to this business'
+              ? 'Manage delivery drivers and kitchen managers for your business'
               : 'Only owners and managers can see the roster'
           }
         >
@@ -224,30 +283,146 @@ export default function Settings() {
             <ErrorState error={staff.error} onRetry={staff.reload} />
           ) : staff.loading ? (
             <SkeletonRows rows={3} cols={2} />
-          ) : (staff.data || []).length === 0 ? (
-            <Empty
-              glyph="◍"
-              title="No agents yet"
-              text="Register an agent account and assign them a beat, and their round appears on their phone."
-            />
           ) : (
             <div className="col" style={{ gap: 'var(--s-3)' }}>
-              {staff.data.map((member) => (
-                <div className="spread" key={member.id}>
-                  <div className="col" style={{ gap: 0 }}>
-                    <strong>{member.name}</strong>
-                    <span className="hint">{member.email}</span>
+              {isOwner ? (
+                <div className="row spread" style={{ marginBottom: 'var(--s-2)' }}>
+                  <span className="hint">{staff.data?.length || 0} active team members</span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => setShowAddModal(true)}
+                  >
+                    + Add Agent / Staff
+                  </button>
+                </div>
+              ) : null}
+
+              {(staff.data || []).map((member) => (
+                <div
+                  className="spread"
+                  key={member.id}
+                  style={{
+                    padding: 'var(--s-2) var(--s-3)',
+                    background: 'var(--surface-muted)',
+                    borderRadius: 'var(--r-sm)',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div className="col" style={{ gap: 2 }}>
+                    <div className="row" style={{ gap: 'var(--s-2)', alignItems: 'center' }}>
+                      <strong>{member.name}</strong>
+                      {member.id === user?.id ? <span className="badge badge-brand">You</span> : null}
+                    </div>
+                    <span className="hint" style={{ fontSize: '0.8125rem' }}>
+                      {member.email} · 📞 {member.phone || 'No phone'}
+                    </span>
                   </div>
-                  <span className="badge badge-plain">{humanise(member.role)}</span>
+
+                  <div className="row" style={{ gap: 'var(--s-2)', alignItems: 'center' }}>
+                    <span className="badge badge-plain">{humanise(member.role)}</span>
+                    {isOwner && member.id !== user?.id ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-ghost"
+                        style={{ color: 'var(--risk-600)', padding: '2px 8px', fontSize: '0.75rem' }}
+                        disabled={deletingId === member.id}
+                        onClick={() => handleDeleteStaff(member)}
+                      >
+                        {deletingId === member.id ? 'Removing…' : 'Delete'}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               ))}
-              <p className="hint" style={{ margin: 0 }}>
-                Agents only ever see the beat assigned to them, and only for today and the recent past.
+
+              <p className="hint" style={{ margin: 0, marginTop: 'var(--s-2)', fontSize: '0.8125rem' }}>
+                💡 Agents only see their assigned beat for today. Assign agents to beats under the <b>Beats</b> menu.
               </p>
             </div>
           )}
         </Card>
       </div>
+
+      {/* ADD AGENT / STAFF MODAL */}
+      {showAddModal ? (
+        <div className="modal-backdrop" onClick={() => setShowAddModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <h3>Add Delivery Agent / Staff</h3>
+            <p className="hint">
+              Create login credentials for a new delivery driver or kitchen manager.
+            </p>
+
+            <form onSubmit={handleAddStaff}>
+              <Field label="Full Name" id="st-name">
+                <input
+                  type="text"
+                  className="input"
+                  required
+                  placeholder="e.g. Kiran Shinde"
+                  value={addForm.name}
+                  onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </Field>
+
+              <Field label="Mobile Phone" id="st-phone">
+                <input
+                  type="tel"
+                  className="input"
+                  required
+                  placeholder="e.g. +919822099887"
+                  value={addForm.phone}
+                  onChange={(e) => setAddForm((f) => ({ ...f, phone: e.target.value }))}
+                />
+              </Field>
+
+              <Field label="Work Email" id="st-email">
+                <input
+                  type="email"
+                  className="input"
+                  required
+                  placeholder="e.g. kiran@amrutdairy.in"
+                  value={addForm.email}
+                  onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
+                />
+              </Field>
+
+              <div className="row" style={{ gap: 'var(--s-3)' }}>
+                <Field label="Role" id="st-role">
+                  <select
+                    className="input"
+                    value={addForm.role}
+                    onChange={(e) => setAddForm((f) => ({ ...f, role: e.target.value }))}
+                  >
+                    <option value="AGENT">Delivery Agent / Driver</option>
+                    <option value="MANAGER">Kitchen / Route Manager</option>
+                  </select>
+                </Field>
+
+                <Field label="Initial Password" id="st-pass">
+                  <input
+                    type="password"
+                    className="input"
+                    required
+                    placeholder="Min 6 chars"
+                    value={addForm.password}
+                    onChange={(e) => setAddForm((f) => ({ ...f, password: e.target.value }))}
+                  />
+                </Field>
+              </div>
+
+              <div className="row spread" style={{ marginTop: 'var(--s-4)' }}>
+                <button type="button" className="btn btn-ghost" onClick={() => setShowAddModal(false)}>
+                  Cancel
+                </button>
+                <SubmitButton disabled={addBusy}>
+                  {addBusy ? 'Adding…' : 'Create Staff Account →'}
+                </SubmitButton>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 'var(--s-5)' }}>
         <Card

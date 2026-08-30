@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,6 +46,24 @@ public class RouteController {
     @Operation(summary = "List everyone on the payroll, for assigning a beat to an agent")
     public List<AuthDtos.UserView> staff(@AuthenticationPrincipal AuthPrincipal principal) {
         return routes.staff(principal.businessId());
+    }
+
+    @PostMapping("/staff")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "Create an agent or manager user account for the business")
+    public ResponseEntity<AuthDtos.UserView> createStaff(@AuthenticationPrincipal AuthPrincipal principal,
+                                                         @Valid @RequestBody AuthDtos.CreateStaffRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(routes.createStaff(principal.businessId(), request));
+    }
+
+    @DeleteMapping("/staff/{id}")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "Delete an agent or manager user account from the business")
+    public ResponseEntity<Void> deleteStaff(@AuthenticationPrincipal AuthPrincipal principal,
+                                            @PathVariable Long id) {
+        routes.deleteStaff(principal.businessId(), id);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}")
