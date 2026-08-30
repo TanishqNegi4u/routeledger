@@ -5,6 +5,7 @@ import AppShell from './components/AppShell.jsx';
 import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import CustomerLogin from './pages/CustomerLogin.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Approvals from './pages/Approvals.jsx';
 import CustomerPortal from './pages/CustomerPortal.jsx';
@@ -85,6 +86,7 @@ const ROUTES = [
   { path: '/register', render: () => <PublicOnly><Register /></PublicOnly> },
 
   // Standalone Consumer & Customer Portal
+  { path: '/customer/login', render: () => <CustomerLogin /> },
   { path: '/portal', render: () => <CustomerPortal /> },
   { path: '/customer', render: () => <CustomerPortal /> },
 

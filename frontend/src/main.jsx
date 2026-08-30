@@ -5,6 +5,7 @@ import './styles/global.css';
 import { RouterProvider } from './lib/router.jsx';
 import { ToastProvider } from './lib/toast.jsx';
 import { AuthProvider } from './lib/auth.jsx';
+import { CustomerAuthProvider } from './lib/customerAuth.jsx';
 import App from './App.jsx';
 
 /**
@@ -18,7 +19,9 @@ createRoot(container).render(
     <RouterProvider>
       <ToastProvider>
         <AuthProvider>
-          <App />
+          <CustomerAuthProvider>
+            <App />
+          </CustomerAuthProvider>
         </AuthProvider>
       </ToastProvider>
     </RouterProvider>

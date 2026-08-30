@@ -36,12 +36,6 @@ const NAV = [
       { to: '/app/collections', glyph: '▲', text: 'Collections', roles: ['OWNER', 'MANAGER', 'AGENT'] },
     ],
   },
-  {
-    label: 'Portals',
-    items: [
-      { to: '/portal', glyph: '🍱', text: 'Customer Portal', roles: ['OWNER', 'MANAGER', 'AGENT'] },
-    ],
-  },
 ];
 
 const TITLES = {
@@ -55,7 +49,6 @@ const TITLES = {
   '/app/invoices': 'Invoices',
   '/app/collections': 'Collections',
   '/app/settings': 'Settings',
-  '/portal': 'Customer Portal',
 };
 
 export default function AppShell({ children }) {
