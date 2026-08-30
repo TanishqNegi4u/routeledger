@@ -80,6 +80,47 @@ export default function Register() {
             <span className={styles.brandName}>RouteLedger</span>
           </Link>
 
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 4,
+              background: 'var(--surface-muted)',
+              padding: 4,
+              borderRadius: 'var(--r-md)',
+              margin: 'var(--s-4) 0 var(--s-3)',
+            }}
+          >
+            <div
+              style={{
+                padding: 'var(--s-2)',
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+                borderRadius: 'var(--r-sm)',
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                textAlign: 'center',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              }}
+            >
+              🏪 Register Business / Owner
+            </div>
+            <Link
+              to="/customer/register"
+              style={{
+                padding: 'var(--s-2)',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                borderRadius: 'var(--r-sm)',
+                color: 'var(--text-muted)',
+                textAlign: 'center',
+                textDecoration: 'none',
+              }}
+            >
+              🍱 Register as Customer →
+            </Link>
+          </div>
+
           <h1 className={styles.title}>Start your round</h1>
           <p className={styles.sub}>
             Free for 14 days on the Trial plan. No card, no setup call — import customers as you go.

@@ -6,6 +6,7 @@ import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import CustomerLogin from './pages/CustomerLogin.jsx';
+import CustomerRegister from './pages/CustomerRegister.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Approvals from './pages/Approvals.jsx';
 import CustomerPortal from './pages/CustomerPortal.jsx';
@@ -87,6 +88,7 @@ const ROUTES = [
 
   // Standalone Consumer & Customer Portal
   { path: '/customer/login', render: () => <CustomerLogin /> },
+  { path: '/customer/register', render: () => <CustomerRegister /> },
   { path: '/portal', render: () => <CustomerPortal /> },
   { path: '/customer', render: () => <CustomerPortal /> },
 

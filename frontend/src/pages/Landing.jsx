@@ -270,6 +270,9 @@ export default function Landing() {
               </Link>
             ) : (
               <>
+                <Link to="/customer" className="btn btn-sm btn-ghost" style={{ color: '#38bdf8' }}>
+                  🍱 Customer Portal
+                </Link>
                 <Link to="/login" className="btn btn-ghost btn-sm" style={{ color: '#cbd5e1' }}>
                   Sign in
                 </Link>
@@ -285,21 +288,24 @@ export default function Landing() {
       <section className={styles.hero} onMouseMove={handleHeroMouseMove} onMouseLeave={handleHeroMouseLeave}>
         <div className={styles.heroInner}>
           <div>
-            <span className={styles.kicker}>For dairy, water, tiffin, laundry and paper rounds</span>
+            <span className={styles.kicker}>For cloud kitchens, tiffin, dairy, water & grocery rounds</span>
             <h1 className={styles.h1}>
               Your delivery round, <em>sequenced, billed and collected</em>.
             </h1>
             <p className={styles.lede}>
-              RouteLedger is the operations backbone for subscription delivery businesses. It plans
+              RouteLedger is the operations backbone for subscription delivery businesses and cloud kitchens. It plans
               tomorrow&rsquo;s route, honours every pause, bills from what was actually delivered, and tells
-              you which household to chase first — from one screen, before the first bottle leaves the crate.
+              you which household to chase first — from one screen, before the first bottle or meal leaves the depot.
             </p>
             <div className={styles.heroCtas}>
               <Link to="/register" className="btn btn-primary btn-lg">
                 Start free for 14 days
               </Link>
-              <Link to="/login" className="btn btn-invert btn-lg">
-                See the live demo
+              <Link to="/customer" className="btn btn-invert btn-lg" style={{ background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.2))' }}>
+                🍱 Open Customer Portal
+              </Link>
+              <Link to="/login" className="btn btn-ghost btn-lg" style={{ color: '#fff' }}>
+                Sign in / Demo
               </Link>
             </div>
             <p className={styles.heroNote}>
