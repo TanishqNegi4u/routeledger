@@ -62,6 +62,16 @@ public class PauseController {
                 .body(pauses.create(principal.businessId(), request));
     }
 
+    @PostMapping("/quick-skip-tomorrow")
+    @Operation(summary = "1-Tap Skip Tomorrow: stops delivery tomorrow and adjusts balance forward")
+    public ResponseEntity<PauseDtos.PauseView> quickSkipTomorrow(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @RequestParam Long customerId,
+            @RequestParam(required = false) String reason) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(pauses.quickSkipTomorrow(principal.businessId(), customerId, reason));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
     @Operation(summary = "Cancel a pause")

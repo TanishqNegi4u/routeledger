@@ -231,6 +231,10 @@ export const api = {
     forCustomer: (customerId) => client.get('/subscriptions', { params: { customerId } }).then((r) => r.data),
     get: (id) => client.get(`/subscriptions/${id}`).then((r) => r.data),
     create: (body) => client.post('/subscriptions', body).then((r) => r.data),
+    advanceSubscribe: (body) => client.post('/subscriptions/advance-subscribe', body).then((r) => r.data),
+    pendingApprovals: () => client.get('/subscriptions/pending-approvals').then((r) => r.data),
+    approve: (id) => client.patch(`/subscriptions/${id}/approve`).then((r) => r.data),
+    reject: (id) => client.patch(`/subscriptions/${id}/reject`).then((r) => r.data),
     update: (id, body) => client.put(`/subscriptions/${id}`, body).then((r) => r.data),
     setActive: (id, active) => client.patch(`/subscriptions/${id}/active`, null, { params: { active } }).then((r) => r.data),
   },
@@ -239,6 +243,8 @@ export const api = {
     forCustomer: (customerId) => client.get('/pauses', { params: { customerId } }).then((r) => r.data),
     calendar: (from, to) => client.get('/pauses/calendar', { params: { from, to } }).then((r) => r.data),
     create: (body) => client.post('/pauses', body).then((r) => r.data),
+    quickSkipTomorrow: (customerId, reason) =>
+      client.post('/pauses/quick-skip-tomorrow', null, { params: { customerId, reason } }).then((r) => r.data),
     delete: (id) => client.delete(`/pauses/${id}`).then((r) => r.data),
   },
 

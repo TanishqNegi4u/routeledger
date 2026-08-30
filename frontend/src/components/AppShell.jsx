@@ -16,6 +16,7 @@ const NAV = [
     label: 'Round',
     items: [
       { to: '/app', glyph: '◧', text: 'Dashboard', roles: ['OWNER', 'MANAGER'] },
+      { to: '/app/approvals', glyph: '✓', text: 'Approvals', roles: ['OWNER'] },
       { to: '/app/my-round', glyph: '◈', text: 'My round', roles: ['AGENT'] },
       { to: '/app/runs', glyph: '⌗', text: 'Runs & routing', roles: ['OWNER', 'MANAGER'] },
     ],
@@ -35,10 +36,17 @@ const NAV = [
       { to: '/app/collections', glyph: '▲', text: 'Collections', roles: ['OWNER', 'MANAGER', 'AGENT'] },
     ],
   },
+  {
+    label: 'Portals',
+    items: [
+      { to: '/portal', glyph: '🍱', text: 'Customer Portal', roles: ['OWNER', 'MANAGER', 'AGENT'] },
+    ],
+  },
 ];
 
 const TITLES = {
   '/app': 'Dashboard',
+  '/app/approvals': 'Advance Approvals',
   '/app/my-round': 'My round',
   '/app/runs': 'Runs & routing',
   '/app/customers': 'Customers',
@@ -47,6 +55,7 @@ const TITLES = {
   '/app/invoices': 'Invoices',
   '/app/collections': 'Collections',
   '/app/settings': 'Settings',
+  '/portal': 'Customer Portal',
 };
 
 export default function AppShell({ children }) {

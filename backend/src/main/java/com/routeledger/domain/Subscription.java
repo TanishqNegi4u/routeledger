@@ -41,8 +41,19 @@ public class Subscription {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false, length = 32)
+    private ApprovalStatus approvalStatus = ApprovalStatus.APPROVED;
+
+    @Column(name = "advance_paid_paise", nullable = false)
+    private long advancePaidPaise = 0L;
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getBusinessId() { return businessId; }
@@ -63,6 +74,12 @@ public class Subscription {
     public void setEndOn(LocalDate endOn) { this.endOn = endOn; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public ApprovalStatus getApprovalStatus() { return approvalStatus; }
+    public void setApprovalStatus(ApprovalStatus approvalStatus) { this.approvalStatus = approvalStatus; }
+    public long getAdvancePaidPaise() { return advancePaidPaise; }
+    public void setAdvancePaidPaise(long advancePaidPaise) { this.advancePaidPaise = advancePaidPaise; }
+    public Instant getApprovedAt() { return approvedAt; }
+    public void setApprovedAt(Instant approvedAt) { this.approvedAt = approvedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

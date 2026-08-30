@@ -113,6 +113,52 @@ public class PauseService {
         return toView(pause, customer.getName(), lineLabels(businessId, customer.getId()));
     }
 
+    /**
+     * 1-Tap Skip Tomorrow: Immediately pauses tomorrow's delivery, prevents deduction,
+     * and credits the meal value forward to the customer's advance balance.
+     */
+    @Transactional
+    public PauseDtos.PauseView quickSkipTomorrow(Long businessId, Long customerId, String reason) {
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        PauseDtos.PauseRequest request = new PauseDtos.PauseRequest(
+                customerId,
+                null,
+                tomorrow,
+                tomorrow,
+                reason != null && !reason.isBlank() ? reason : "Customer 1-Tap Skip for Tomorrow"
+        );
+        PauseDtos.PauseView created = create(businessId, request);
+
+        // Credit the value of tomorrow's active subscriptions forward
+        Customer customer = customers.findByIdAndBusinessId(customerId, businessId).orElse(null);
+        if (customer != null) {
+            List<Subscription> activeLines = subscriptions.findByCustomerIdOrderByIdAsc(customerId);
+            Map<Long, Product> catalogue = catalogue(businessId);
+            long skippedDayPaise = 0L;
+            for (Subscription line : activeLines) {
+                if (line.isActive()) {
+                    Product prod = catalogue.get(line.getProductId());
+                    if (prod != null) {
+                        skippedDayPaise += prod.getPricePaise() * line.getQuantity();
+                    }
+                }
+            }
+            if (skippedDayPaise > 0) {
+                customer.setAdvanceCreditPaise(customer.getAdvanceCreditPaise() + skippedDayPaise);
+                customers.save(customer);
+            }
+        }
+        return created;
+    }
+
+    private Map<Long, Product> catalogue(Long businessId) {
+        Map<Long, Product> byId = new HashMap<>();
+        for (Product product : products.findByBusinessId(businessId)) {
+            byId.put(product.getId(), product);
+        }
+        return byId;
+    }
+
     @Transactional
     public void delete(Long businessId, Long id) {
         DeliveryPause pause = pauses.findByIdAndBusinessId(id, businessId)

@@ -21,7 +21,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Standing orders: "2 litres of toned milk, daily, from the 1st". */
+/**
+ * Standing orders: "2 litres of toned milk, daily, from the 1st".
+ * Includes Customer Advance Subscription and Owner Approval Queues.
+ */
 @RestController
 @RequestMapping("/api/subscriptions")
 @Tag(name = "Subscriptions", description = "Recurring standing orders per customer")
@@ -56,6 +59,41 @@ public class SubscriptionController {
             @Valid @RequestBody SubscriptionDtos.SubscriptionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(subscriptions.create(principal.businessId(), request));
+    }
+
+    @PostMapping("/advance-subscribe")
+    @Operation(summary = "Customer self-service subscription with advance payment")
+    public ResponseEntity<SubscriptionDtos.SubscriptionView> advanceSubscribe(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @Valid @RequestBody SubscriptionDtos.AdvanceSubscribeRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(subscriptions.advanceSubscribe(principal.businessId(), request));
+    }
+
+    @GetMapping("/pending-approvals")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "Owner queue of advance-paid subscriptions awaiting approval")
+    public SubscriptionDtos.ApprovalSummaryResponse pendingApprovals(
+            @AuthenticationPrincipal AuthPrincipal principal) {
+        return subscriptions.getPendingApprovals(principal.businessId());
+    }
+
+    @PatchMapping("/{id}/approve")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "Owner approves advance subscription into active service")
+    public SubscriptionDtos.SubscriptionView approve(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable Long id) {
+        return subscriptions.approve(principal.businessId(), id);
+    }
+
+    @PatchMapping("/{id}/reject")
+    @PreAuthorize("hasRole('OWNER')")
+    @Operation(summary = "Owner rejects subscription")
+    public SubscriptionDtos.SubscriptionView reject(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable Long id) {
+        return subscriptions.reject(principal.businessId(), id);
     }
 
     @PutMapping("/{id}")

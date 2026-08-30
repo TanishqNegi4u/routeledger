@@ -6,6 +6,8 @@ import Landing from './pages/Landing.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import Approvals from './pages/Approvals.jsx';
+import CustomerPortal from './pages/CustomerPortal.jsx';
 import MyRound from './pages/MyRound.jsx';
 import Runs from './pages/Runs.jsx';
 import RunDetail from './pages/RunDetail.jsx';
@@ -82,7 +84,11 @@ const ROUTES = [
   { path: '/login', render: () => <PublicOnly><Login /></PublicOnly> },
   { path: '/register', render: () => <PublicOnly><Register /></PublicOnly> },
 
+  // Customer Self-Service Portal
+  { path: '/portal', render: () => <Guarded roles={ALL}><CustomerPortal /></Guarded> },
+
   { path: '/app', render: () => <Guarded roles={MANAGE}><Dashboard /></Guarded> },
+  { path: '/app/approvals', render: () => <Guarded roles={['OWNER']}><Approvals /></Guarded> },
   { path: '/app/my-round', render: () => <Guarded roles={['AGENT']}><MyRound /></Guarded> },
 
   { path: '/app/runs', render: () => <Guarded roles={MANAGE}><Runs /></Guarded> },

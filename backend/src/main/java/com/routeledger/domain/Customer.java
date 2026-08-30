@@ -45,14 +45,20 @@ public class Customer {
     @Column(name = "joined_on", nullable = false)
     private LocalDate joinedOn = LocalDate.now();
 
+    @Column(name = "advance_credit_paise", nullable = false)
+    private long advanceCreditPaise = 0L;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getBusinessId() { return businessId; }
     public void setBusinessId(Long businessId) { this.businessId = businessId; }
     public Long getRouteId() { return routeId; }
     public void setRouteId(Long routeId) { this.routeId = routeId; }
+    public long getAdvanceCreditPaise() { return advanceCreditPaise; }
+    public void setAdvanceCreditPaise(long advanceCreditPaise) { this.advanceCreditPaise = advanceCreditPaise; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getPhone() { return phone; }

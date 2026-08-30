@@ -24,11 +24,16 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
 
     long countByProductIdAndActiveTrue(Long productId);
 
-    /** Active lines whose date window contains the run date, for the given customers. */
+    List<Subscription> findByBusinessIdAndApprovalStatusOrderByIdDesc(Long businessId, com.routeledger.domain.ApprovalStatus approvalStatus);
+
+    long countByBusinessIdAndApprovalStatus(Long businessId, com.routeledger.domain.ApprovalStatus approvalStatus);
+
+    /** Active lines whose date window contains the run date, for the given customers, approved by Owner. */
     @Query("""
             select s from Subscription s
             where s.businessId = :businessId
               and s.active = true
+              and s.approvalStatus = 'APPROVED'
               and s.customerId in :customerIds
               and s.startOn <= :onDate
               and (s.endOn is null or s.endOn >= :onDate)
@@ -45,6 +50,7 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
             select s from Subscription s
             where s.businessId = :businessId
               and s.active = true
+              and s.approvalStatus = 'APPROVED'
               and s.customerId in :customerIds
               and s.startOn <= :to
               and (s.endOn is null or s.endOn >= :from)
