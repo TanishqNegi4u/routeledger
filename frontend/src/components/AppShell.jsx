@@ -94,28 +94,30 @@ export default function AppShell({ children }) {
           </span>
         </Link>
 
-        {NAV.map((group) => {
-          const visible = group.items.filter((item) => item.roles.includes(role));
-          if (!visible.length) return null;
-          return (
-            <div className={styles.group} key={group.label}>
-              <span className={styles.groupLabel}>{group.label}</span>
-              {visible.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={`${styles.item} ${isActive(item.to) ? styles.itemActive : ''}`}
-                  aria-current={isActive(item.to) ? 'page' : undefined}
-                >
-                  <span className={styles.glyph} aria-hidden="true">
-                    {item.glyph}
-                  </span>
-                  {item.text}
-                </Link>
-              ))}
-            </div>
-          );
-        })}
+        <div className={styles.navBody}>
+          {NAV.map((group) => {
+            const visible = group.items.filter((item) => item.roles.includes(role));
+            if (!visible.length) return null;
+            return (
+              <div className={styles.group} key={group.label}>
+                <span className={styles.groupLabel}>{group.label}</span>
+                {visible.map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`${styles.item} ${isActive(item.to) ? styles.itemActive : ''}`}
+                    aria-current={isActive(item.to) ? 'page' : undefined}
+                  >
+                    <span className={styles.glyph} aria-hidden="true">
+                      {item.glyph}
+                    </span>
+                    {item.text}
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
+        </div>
 
         <div className={styles.navFoot}>
           <Link

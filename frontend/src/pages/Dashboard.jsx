@@ -200,6 +200,17 @@ export default function Dashboard() {
       ? (summary.todayDelivered / summary.todayStops) * 100
       : 0;
 
+  const pendingApprovals = useAsync(() => api.subscriptions.pendingApprovals(), []);
+  const tomorrowPauses = useAsync(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tIso = tomorrow.toISOString().split('T')[0];
+    return api.pauses.calendar(todayIso(), tIso);
+  }, []);
+
+  const pendingCount = pendingApprovals.data?.pendingCount || 0;
+  const tomorrowSkips = tomorrowPauses.data || [];
+
   return (
     <>
       <PageHeader
@@ -224,6 +235,73 @@ export default function Dashboard() {
           </div>
         </div>
       </PageHeader>
+
+      {/* --- ADVANCE APPROVALS ALERT FOR OWNER --------------------------------- */}
+      {pendingCount > 0 ? (
+        <div style={{ marginBottom: 'var(--s-4)' }}>
+          <Card flush>
+            <div
+              className="row spread wrap"
+              style={{
+                padding: 'var(--s-3) var(--s-4)',
+                background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.12), rgba(16, 185, 129, 0.12))',
+                borderLeft: '4px solid var(--brand-500)',
+                alignItems: 'center',
+                gap: 'var(--s-3)',
+              }}
+            >
+              <div className="row" style={{ gap: 'var(--s-3)', alignItems: 'center' }}>
+                <span style={{ fontSize: '1.25rem' }}>⚡</span>
+                <div>
+                  <strong style={{ fontSize: '0.9375rem', display: 'block' }}>
+                    {pendingCount} Advance Paid Subscription{pendingCount > 1 ? 's' : ''} Awaiting Owner Approval
+                  </strong>
+                  <span className="hint">
+                    Customers have completed advance payment. Approve them to dispatch to the kitchen manager and driver runs.
+                  </span>
+                </div>
+              </div>
+              <Link to="/app/approvals" className="btn btn-primary btn-sm">
+                Review & Approve Service →
+              </Link>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      {/* --- TOMORROW SKIPS & VACATIONS LIVE NOTICE ---------------------------- */}
+      {tomorrowSkips.length > 0 ? (
+        <div style={{ marginBottom: 'var(--s-4)' }}>
+          <Card flush>
+            <div
+              className="row spread wrap"
+              style={{
+                padding: 'var(--s-3) var(--s-4)',
+                background: 'rgba(245, 158, 11, 0.08)',
+                borderLeft: '4px solid var(--warn-500)',
+                alignItems: 'center',
+                gap: 'var(--s-3)',
+              }}
+            >
+              <div className="row" style={{ gap: 'var(--s-3)', alignItems: 'center' }}>
+                <span style={{ fontSize: '1.25rem' }}>🏖️</span>
+                <div>
+                  <strong style={{ fontSize: '0.9375rem', display: 'block' }}>
+                    {tomorrowSkips.length} Household{tomorrowSkips.length > 1 ? 's' : ''} Paused / Skipped for Tomorrow
+                  </strong>
+                  <span className="hint">
+                    {tomorrowSkips.map((p) => p.customerName).slice(0, 3).join(', ')}
+                    {tomorrowSkips.length > 3 ? ` and ${tomorrowSkips.length - 3} more` : ''} · Kitchen cooking quantities decremented & credits adjusted forward.
+                  </span>
+                </div>
+              </div>
+              <Link to="/app/customers" className="btn btn-ghost btn-sm">
+                View Customers
+              </Link>
+            </div>
+          </Card>
+        </div>
+      ) : null}
 
       {/* --- ONBOARDING CHECKLIST FOR FRESH SIGNUPS --------------------------- */}
       {summary && summary.activeCustomers === 0 && summary.activeRoutes === 0 ? (

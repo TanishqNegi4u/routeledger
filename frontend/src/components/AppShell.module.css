@@ -12,13 +12,38 @@
   top: 0;
   align-self: start;
   height: 100vh;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
-  padding: var(--s-5) var(--s-4);
+  padding: var(--s-5) var(--s-3);
   background: linear-gradient(180deg, var(--ink-900) 0%, var(--ink-950) 100%);
   color: #cbd5e1;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.navBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding-right: 2px;
+  margin: var(--s-3) 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.navBody::-webkit-scrollbar {
+  width: 4px;
+}
+
+.navBody::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
 }
 
 .brand {
